@@ -3,6 +3,35 @@ from bs4 import BeautifulSoup
 from collections import defaultdict
 from tarih_ayar import secili_tarihleri_bul
 
+def temizle_sayi(s):
+    s = str(s).strip()
+    if not s:
+        return None
+    if "," in s and "." in s:
+        s = s.replace(".", "").replace(",", ".")
+    elif "," in s:
+        s = s.replace(",", ".")
+    elif "." in s:
+        parts = s.split(".")
+        if len(parts[-1]) <= 2:
+            pass
+        else:
+            s = s.replace(".", "")
+    try:
+        return float(s)
+    except:
+        return None
+
+def temizle_hacim(s):
+    s = str(s).strip()
+    if not s:
+        return None
+    s = s.replace(".", "").replace(",", "")
+    try:
+        return int(s)
+    except:
+        return None
+
 BASE_URL = json.loads(os.environ["MAIN"])["DATA_SOURCE_URL"]
 
 def fiyat_hacim_tek_gun(g,a,y):
@@ -23,14 +52,14 @@ def fiyat_hacim_tek_gun(g,a,y):
         {
             "Tarih": ts,
             "Hisse": c[0],
-            "Kapanış": c[1],
-            "Yüksek": c[4],
-            "Düşük": c[5],
-            "Hacim(Lot)": c[7]
+            "Kapanış": temizle_sayi(c[1]),
+            "Yüksek": temizle_sayi(c[4]),
+            "Düşük": temizle_sayi(c[5]),
+            "Hacim(Lot)": temizle_hacim(c[7])
         }
         for c in ([td.get_text(strip=True) for td in tr.find_all('td')]
                   for tr in t.find_all('tr')[1:])
-        if len(c) >= 9
+        if len(c) >= 9 and temizle_sayi(c[1])
     ]
 
 df_csv = pd.read_csv("data/dates.csv",encoding="utf-8")
@@ -62,6 +91,7 @@ def pivotla(df,kolon,takip_hisseler,tarih_listesi):
     df["Tarih"]=pd.to_datetime(df["Tarih"],dayfirst=True,errors="coerce")
     df=df[df["Tarih"].isin(pd.to_datetime(tarih_listesi,dayfirst=True))]
     df=df.dropna(subset=["Tarih","Hisse",kolon])
+    df[kolon]=df[kolon].apply(temizle_sayi)
     p=df.pivot_table(index="Tarih",columns="Hisse",values=kolon,aggfunc="first").ffill()
     p=p[[h for h in p.columns if h in takip_hisseler]]
     return p.sort_index(ascending=False).sort_index(axis=1)
