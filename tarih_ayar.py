@@ -25,7 +25,7 @@ def sirali_gunler(csv_tarihleri, ilk_gun, hedef_gun_sayisi):
         return []
     return tarih_serisi.iloc[baslangic_index:baslangic_index + hedef_gun_sayisi].dt.date.tolist()
 
-def secili_tarihleri_bul(csv_tarihleri, hedef_gun_sayisi=500):
+def secili_tarihleri_bul(csv_tarihleri, hedef_gun_sayisi=5):
     ilk_gun = bul_ilk_gun(csv_tarihleri)
     if not ilk_gun:
         return []
@@ -36,4 +36,5 @@ def secili_tarihleri_bul(csv_tarihleri, hedef_gun_sayisi=500):
 df = pd.read_csv("data/dates.csv", encoding="utf-8")
 csv_tarihleri = df["Tarih"].tolist()   # sadece ilk sütun (Tarih)
 
-secili_tarihler = secili_tarihleri_bul(csv_tarihleri, hedef_gun_sayisi=500)
+secili_tarihler = secili_tarihleri_bul(csv_tarihleri, hedef_gun_sayisi=5)
+print(secili_tarihler)
