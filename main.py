@@ -24,8 +24,13 @@ def fiyat_hacim_tek_gun(g,a,y):
     return [{"Tarih":ts,"Hisse":c[0],"Kapanış":temizle_sayi(c[1]),"Yüksek":temizle_sayi(c[4]),"Düşük":temizle_sayi(c[5]),"Hacim(Lot)":temizle_hacim(c[7])}
             for c in ([td.get_text(strip=True) for td in tr.find_all('td')] for tr in t.find_all('tr')[1:]) if len(c)>=9 and temizle_sayi(c[1])]
 
-csv_tarihleri=pd.read_csv("hisseler.csv",encoding="utf-8")["Tarih"].tolist()
-secili=list(reversed(secili_tarihleri_bul(csv_tarihleri,500)))
+# 📅 Tarih listesi ve takip hisseleri
+df_csv = pd.read_csv("hisseler.csv",encoding="utf-8")
+csv_tarihleri = df_csv["Tarih"].dropna().tolist()
+secili = list(reversed(secili_tarihleri_bul(csv_tarihleri,500)))
+takip_hisseler = df_csv.iloc[:,1].dropna().unique().tolist()
+
+# 📊 Dikey artifact verisi
 tum_veriler=[v for t in secili for v in fiyat_hacim_tek_gun(*map(int,t.split(".")))]
 vg=defaultdict(list); [vg[v["Tarih"]].append(v) for v in tum_veriler]
 ilk={}; [ilk.setdefault(v["Hisse"],pd.to_datetime(v["Tarih"],dayfirst=True)) for v in tum_veriler]
@@ -38,3 +43,21 @@ for t in secili:
     onceki.update(gv); final.extend(sat)
 
 if final: pd.DataFrame(final).to_csv("artifact_veriler.csv",index=False,encoding="utf-8")
+
+# 📊 Yatay tablolar
+df = pd.DataFrame(final)
+
+def pivotla(df, kolon, takip_hisseler, tarih_listesi):
+    df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
+    df = df[df["Tarih"].isin(pd.to_datetime(tarih_listesi, dayfirst=True))]
+    df = df.dropna(subset=["Tarih","Hisse",kolon])
+    df[kolon] = df[kolon].apply(temizle_sayi)
+    p = df.pivot_table(index="Tarih", columns="Hisse", values=kolon, aggfunc="first").ffill()
+    p = p[[h for h in p.columns if h in takip_hisseler]]
+    return p.sort_index(ascending=False).sort_index(axis=1)
+
+tablolar = {col: pivotla(df,col,takip_hisseler,secili) for col in ["Kapanış","Yüksek","Düşük","Hacim(Lot)"]}
+
+for col, p in tablolar.items():
+    p.index = p.index.strftime("%d.%m.%Y")
+    p.to_csv(f"artifact_{col}.csv", encoding="utf-8")
