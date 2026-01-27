@@ -83,8 +83,7 @@ for t in secili:
             k = onceki[h].copy(); k["Tarih"]=t; sat.append(k)
     onceki.update(gv); final.extend(sat)
 
-if final: pd.DataFrame(final).to_csv("artifact_veriler.csv",index=False,encoding="utf-8")
-
+# ❌ artifact_veriler.csv artık yazılmıyor
 df = pd.DataFrame(final)
 
 def pivotla(df, kolon, takip_hisseler, tarih_listesi, haftalik=False):
@@ -112,12 +111,14 @@ def pivotla(df, kolon, takip_hisseler, tarih_listesi, haftalik=False):
     p = p[[h for h in p.columns if h in takip_hisseler]]
     return p.sort_index(ascending=False).sort_index(axis=1)
 
+# Günlük tablolar
 tablolar = {col:pivotla(df,col,takip_hisseler,secili,haftalik=False) for col in ["Kapanış","Yüksek","Düşük","Hacim(Lot)"]}
 
 for col,p in tablolar.items():
     p.index = p.index.strftime("%d.%m.%Y")
     p.to_csv(f"artifact_{col}.csv",encoding="utf-8")
 
+# Haftalık kapanış tablosu
 haftalik_kapanis = pivotla(df,"Kapanış",takip_hisseler,secili,haftalik=True)
 if not haftalik_kapanis.empty:
     haftalik_kapanis.index = haftalik_kapanis.index.strftime("%d.%m.%Y")
