@@ -87,17 +87,40 @@ if final: pd.DataFrame(final).to_csv("artifact_veriler.csv",index=False,encoding
 
 df = pd.DataFrame(final)
 
-def pivotla(df,kolon,takip_hisseler,tarih_listesi):
-    df["Tarih"]=pd.to_datetime(df["Tarih"],dayfirst=True,errors="coerce")
-    df=df[df["Tarih"].isin(pd.to_datetime(tarih_listesi,dayfirst=True))]
-    df=df.dropna(subset=["Tarih","Hisse",kolon])
-    df[kolon]=df[kolon].apply(temizle_sayi)
-    p=df.pivot_table(index="Tarih",columns="Hisse",values=kolon,aggfunc="first").ffill()
-    p=p[[h for h in p.columns if h in takip_hisseler]]
+def pivotla(df, kolon, takip_hisseler, tarih_listesi, haftalik=False):
+    df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
+    df = df[df["Tarih"].isin(pd.to_datetime(tarih_listesi, dayfirst=True))]
+    df = df.dropna(subset=["Tarih","Hisse",kolon])
+    df[kolon] = df[kolon].apply(temizle_sayi)
+
+    if haftalik:
+        df["Hafta"] = df["Tarih"].dt.to_period("W")
+        df["Gun"] = df["Tarih"].dt.dayofweek
+        tercih_sirasi = [4,3,2,1,0]  # Cuma → Pazartesi
+        haftalik_kayitlar = []
+        for hafta, grup in df.groupby("Hafta"):
+            for gun in tercih_sirasi:
+                secim = grup[grup["Gun"] == gun]
+                if not secim.empty:
+                    haftalik_kayitlar.append(secim)
+                    break
+        if not haftalik_kayitlar:
+            return pd.DataFrame()
+        df = pd.concat(haftalik_kayitlar)
+
+    p = df.pivot_table(index="Tarih", columns="Hisse", values=kolon, aggfunc="first").ffill()
+    p = p[[h for h in p.columns if h in takip_hisseler]]
     return p.sort_index(ascending=False).sort_index(axis=1)
 
-tablolar={col:pivotla(df,col,takip_hisseler,secili) for col in ["Kapanış","Yüksek","Düşük","Hacim(Lot)"]}
+# Günlük tablolar
+tablolar = {col:pivotla(df,col,takip_hisseler,secili,haftalik=False) for col in ["Kapanış","Yüksek","Düşük","Hacim(Lot)"]}
 
 for col,p in tablolar.items():
-    p.index=p.index.strftime("%d.%m.%Y")
+    p.index = p.index.strftime("%d.%m.%Y")
     p.to_csv(f"artifact_{col}.csv",encoding="utf-8")
+
+# Haftalık kapanış tablosu
+haftalik_kapanis = pivotla(df,"Kapanış",takip_hisseler,secili,haftalik=True)
+if not haftalik_kapanis.empty:
+    haftalik_kapanis.index = haftalik_kapanis.index.strftime("%d.%m.%Y")
+    haftalik_kapanis.to_csv("artifact_Haftalik_Kapanis.csv",encoding="utf-8")
