@@ -1,0 +1,35 @@
+name: Run Main Script
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 15 * * *" 
+
+jobs:
+  run-main:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run main.py
+        env:
+          MAIN: ${{ secrets.MAIN }}
+        run: |
+          python main.py
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: csv-results
+          path: artifact_*.csv
