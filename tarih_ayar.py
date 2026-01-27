@@ -33,7 +33,7 @@ def secili_tarihleri_bul(csv_tarihleri, hedef_gun_sayisi=5):
     return [g.strftime("%d.%m.%Y") for g in gunler]
 
 df = pd.read_csv("data/dates.csv", encoding="utf-8")
-csv_tarihleri = df["Tarih"].tolist()   # sadece ilk sütun (Tarih)
+csv_tarihleri = df["Tarih"].tolist()
 
 secili_tarihler = secili_tarihleri_bul(csv_tarihleri, hedef_gun_sayisi=5)
 print(secili_tarihler)
