@@ -4,28 +4,35 @@ from collections import defaultdict
 from tarih_ayar import secili_tarihleri_bul
 
 def temizle_sayi(s):
-    s=str(s).strip().replace(".","").replace(",","."); 
+    s=str(s).strip().replace(".","").replace(",",".")
     try: return float(s)
     except: return None
 
 def temizle_hacim(s):
-    s=str(s).replace(".","").replace(",","."); 
+    s=str(s).replace(".","").replace(",",".")
     try: return int(float(s))
     except: return None
 
 BASE_URL=json.loads(os.environ["MAIN"])["DATA_SOURCE_URL"]
 
 def fiyat_hacim_tek_gun(g,a,y):
-    try: r=requests.get(f"{BASE_URL}?gun={g}&ay={a}&yil={y}&tip=Hisse",headers={'User-Agent':'Mozilla/5.0'},timeout=10); r.raise_for_status()
+    try:
+        r=requests.get(f"{BASE_URL}?gun={g}&ay={a}&yil={y}&tip=Hisse",
+                       headers={'User-Agent':'Mozilla/5.0'},timeout=10)
+        r.raise_for_status()
     except: return []
     soup=BeautifulSoup(r.text,'html.parser'); t=soup.find('table')
     if not t: return []
     ts=f"{g:02d}.{a:02d}.{y}"
-    return [{"Tarih":ts,"Hisse":c[0],"Kapanış":temizle_sayi(c[1]),"Yüksek":temizle_sayi(c[4]),"Düşük":temizle_sayi(c[5]),"Hacim(Lot)":temizle_hacim(c[7])}
-            for c in ([td.get_text(strip=True) for td in tr.find_all('td')] for tr in t.find_all('tr')[1:]) if len(c)>=9 and temizle_sayi(c[1])]
+    return [{"Tarih":ts,"Hisse":c[0],"Kapanış":temizle_sayi(c[1]),
+             "Yüksek":temizle_sayi(c[4]),"Düşük":temizle_sayi(c[5]),
+             "Hacim(Lot)":temizle_hacim(c[7])}
+            for c in ([td.get_text(strip=True) for td in tr.find_all('td')]
+                      for tr in t.find_all('tr')[1:])
+            if len(c)>=9 and temizle_sayi(c[1])]
 
-# 📅 Tarih listesi ve takip hisseleri
-df_csv = pd.read_csv("hisseler.csv",encoding="utf-8")
+# 📅 Tarih listesi ve takip hisseleri (data klasöründen)
+df_csv = pd.read_csv("data/dates.csv", encoding="utf-8")
 csv_tarihleri = df_csv["Tarih"].dropna().tolist()
 secili = list(reversed(secili_tarihleri_bul(csv_tarihleri,500)))
 takip_hisseler = df_csv.iloc[:,1].dropna().unique().tolist()
@@ -39,7 +46,8 @@ for t in secili:
     td=pd.to_datetime(t,dayfirst=True); gv={v["Hisse"]:v for v in vg.get(t,[])}; sat=[]
     for h in tum_hisseler:
         if h in gv: sat.append(gv[h])
-        elif h in onceki and td>=ilk[h]: k=onceki[h].copy(); k["Tarih"]=t; sat.append(k)
+        elif h in onceki and td>=ilk[h]:
+            k=onceki[h].copy(); k["Tarih"]=t; sat.append(k)
     onceki.update(gv); final.extend(sat)
 
 if final: pd.DataFrame(final).to_csv("artifact_veriler.csv",index=False,encoding="utf-8")
