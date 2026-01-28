@@ -24,3 +24,9 @@ jobs:
           SEKTORPAZAR: ${{ secrets.SEKTORPAZAR }}
         run: |
           python sektorpazar.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact
+          path: artifact.csv
