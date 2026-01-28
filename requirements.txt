@@ -1,4 +1,4 @@
-  requests>=2.32,<2.33
+requests>=2.32,<2.33
 beautifulsoup4==4.12.3
 pandas>=2.3.2
 openpyxl==3.1.5
@@ -10,3 +10,4 @@ gspread-formatting==1.2.0
 gspread-dataframe==3.3.0
 pandas-ta==0.4.71b0
 pytz
+python-dotenv==1.0.1
