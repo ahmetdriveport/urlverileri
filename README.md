@@ -7,4 +7,4 @@ Bu repo BIST şirketlerine ait verileri internetten çekip GitHub Actions aracı
 - Kodun içinde ve elde ettiği verilerde gizli bilgi yoktur.  
 
 ## Lisans
-Lisans bulunmamaktadır, kodun kullanımı yasaktır.  
+Lisans bulunmamaktadır, Chatgpt destekli amatör koddur.
