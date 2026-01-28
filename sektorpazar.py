@@ -10,20 +10,30 @@ load_dotenv()
 secret_json = os.getenv("SEKTORPAZAR")
 secret = json.loads(secret_json)
 
-url1 = secret["url1"]
-url2 = secret["url2"]
-url3 = secret["url3"]
+url1 = secret["url1"]  # Endeksler
+url2 = secret["url2"]  # Pazarlar
+url3 = secret["url3"]  # Fiili dolaşım
 
 df_dates = pd.read_csv("data/dates.csv")
 df_sektor = pd.read_csv("data/sektor.csv")
 df_pazar = pd.read_csv("data/pazar.csv")
 
+# --- Endeksler ---
 resp1 = requests.get(url1, timeout=30)
-resp2 = requests.get(url2, timeout=30)
-resp3 = requests.get(url3, timeout=30)
+resp1.raise_for_status()
+df_endeks = pd.read_excel(BytesIO(resp1.content), header=None)
 
-soup = BeautifulSoup(resp1.text, "html.parser")
+# --- Pazarlar ---
+resp2 = requests.get(url2, timeout=30)
+resp2.raise_for_status()
+df_markets = pd.read_excel(BytesIO(resp2.content), header=None)
+
+# --- Fiili dolaşım ---
+resp3 = requests.get(url3, timeout=30)
+resp3.raise_for_status()
+soup = BeautifulSoup(resp3.text, "html.parser")
 table = soup.find("table")
+
 rows_fd = []
 for tr in table.find_all("tr"):
     tds = [td.get_text(strip=True) for td in tr.find_all("td")]
@@ -31,9 +41,7 @@ for tr in table.find_all("tr"):
         rows_fd.append(tds)
 df_fd = pd.DataFrame(rows_fd)
 
-df_endeks = pd.read_excel(BytesIO(resp2.content), header=None)
-df_markets = pd.read_excel(BytesIO(resp3.content), header=None)
-
+# --- Artifact üretimi ---
 results = []
 for kod in df_dates["Hisse"].unique():
     endeks = ""
