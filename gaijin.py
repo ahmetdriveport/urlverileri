@@ -53,12 +53,11 @@ def safe_post(session,url,payload,headers,n=3,backoff=1.0):
             time.sleep(backoff*(attempt+1))
     return None
 
-def load_dates_and_hisses(path=DATES_FILE):
+def load_dates(path=DATES_FILE):
     df = pd.read_csv(path)
     df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
     dates = df["Tarih"].dropna().sort_values(ascending=False).tolist()
-    hisses = df["Hisse"].dropna().str.strip().str.upper().unique().tolist()
-    return dates, hisses
+    return dates
 
 def fetch_for_target_range(session,start,end,endeks="09"):
     payload = {"baslangicTarih":start,"bitisTarihi":end,"sektor":None,"endeks":endeks,"hisse":None}
@@ -83,7 +82,7 @@ def temizle_fiyat(s):
     try: return float(s)
     except: return None
 
-def pivotla(df,kolon,hisses,do_ffill=True):
+def pivotla(df,kolon,do_ffill=True):
     df["Kod"] = df["Kod"].astype(str).str.strip().str.upper()
     df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
     df = df.dropna(subset=["Tarih","Kod",kolon])
@@ -97,37 +96,40 @@ def pivotla(df,kolon,hisses,do_ffill=True):
     if do_ffill:
         pivot_df = pivot_df.ffill()
 
-    pivot_df = pivot_df.reindex(columns=hisses)
     pivot_df.index = pivot_df.index.strftime("%d.%m.%Y")
     return pivot_df
 
 def main():
-    dates,hisses = load_dates_and_hisses(DATES_FILE)
+    dates = load_dates(DATES_FILE)   # sadece tarihleri alıyoruz
     session = requests.Session()
-    cookies = get_cookies_with_selenium(CHROMEDRIVER_PATH,HEADLESS,BASE_PAGE)
-    session.headers.update({"Cookie":cookie_header_from_list(cookies),"User-Agent":USER_AGENT})
-    all_data=[]; cnt=0
-    for i,dt in enumerate(dates):
+    cookies = get_cookies_with_selenium(CHROMEDRIVER_PATH, HEADLESS, BASE_PAGE)
+    session.headers.update({"Cookie": cookie_header_from_list(cookies), "User-Agent": USER_AGENT})
+    all_data = []
+    cnt = 0
+
+    for i, dt in enumerate(dates):
         end = dt.strftime("%d-%m-%Y")
-        if i+1 < len(dates):
-            start = dates[i+1].strftime("%d-%m-%Y")
-            recs = fetch_for_target_range(session,start,end)
+        if i + 1 < len(dates):
+            start = dates[i + 1].strftime("%d-%m-%Y")
+            recs = fetch_for_target_range(session, start, end)
             if recs:
-                for r in recs: r["Tarih"] = end
+                for r in recs:
+                    r["Tarih"] = end
                 all_data += recs
                 cnt += 1
-        if cnt >= MAX_ROWS:   # burada sınır koyduk
+        if cnt >= MAX_ROWS:   # sadece 5 gün
             break
+
     if all_data:
-        df = pd.DataFrame(all_data).rename(columns={"HISSE_KODU":"Kod","YAB_ORAN_END":"Yabancı Oran"})
-        if {"Kod","Yabancı Oran"} <= set(df.columns):
-            dfp = pivotla(df,"Yabancı Oran",hisses,do_ffill=True)
+        df = pd.DataFrame(all_data).rename(columns={"HISSE_KODU": "Kod", "YAB_ORAN_END": "Yabancı Oran"})
+        if {"Kod", "Yabancı Oran"} <= set(df.columns):
+            dfp = pivotla(df, "Yabancı Oran", do_ffill=True)  # hisse filtresi yok
             dfp.to_csv(OUTPUT_FILE, encoding="utf-8", float_format="%.2f")
-            logger.info(f"{dfp.shape} tablo {OUTPUT_FILE} yazıldı (filtre: {len(hisses)} hisse)")
+            logger.info(f"{dfp.shape} tablo {OUTPUT_FILE} yazıldı")
         else:
             logger.warning("Eksik kolonlar, pivot yapılamadı.")
     else:
         logger.warning("Veri yok")
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()
