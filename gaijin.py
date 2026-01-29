@@ -27,7 +27,7 @@ def get_cookies_with_selenium(path,headless,url):
     opts.add_argument("--disable-gpu"); opts.add_argument(f"--user-agent={USER_AGENT}")
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=opts)
     driver.set_page_load_timeout(60)
-    for attempt in range(5):  # retry güçlendirildi
+    for attempt in range(5):
         try:
             driver.get(url); time.sleep(2)
             cookies = driver.get_cookies()
@@ -106,7 +106,7 @@ def main():
         # 🔧 Filtreleme
         df = df[df["HISSE_KODU"].isin(hisseler)]
 
-        # 🔧 Pivotlama
+        # 🔧 Pivotlama (pivot_table yerine pivot)
         pivot_df = df.pivot(index="Tarih", columns="HISSE_KODU", values="YAB_ORAN_END")
         pivot_df = pivot_df.sort_index(ascending=False).sort_index(axis=1)
         pivot_df.index = pivot_df.index.strftime("%d.%m.%Y")
