@@ -72,9 +72,10 @@ def fetch_for_target_range(session,start,end,endeks="09"):
 def temizle_fiyat(s):
     if pd.isna(s): return None
     try:
-        s = str(s).strip().replace(",",".")
+        s = str(s).strip().replace(",", ".")
         return float(s)
-    except: return None
+    except:
+        return None
 
 def pivotla(df,kolon,do_ffill=True):
     df["Kod"] = df["Kod"].astype(str).str.strip().str.upper()
@@ -130,7 +131,7 @@ def main():
                 OUTPUT_FILE,
                 sep=";",              
                 encoding="utf-8-sig", 
-                float_format="%.2f"   # iki basamaklı ondalık
+                float_format="%.2f"   # örn: 13.72
             )
             logger.info(f"{dfp.shape} tablo {OUTPUT_FILE} yazıldı")
         else:
