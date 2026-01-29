@@ -53,13 +53,12 @@ def load_dates_and_hisses(path=DATES_FILE):
     dates,hisses=[],set()
     with open(path,"r",encoding="utf-8") as f:
         for row in csv.reader(f):
-            if row and row[0].strip():
-                try:
-                    dt=date_str_to_dt(row[0].strip())
-                    if dt.date()<=datetime.now(UTC).date():
-                        dates.append(dt)
-                        if len(row)>1 and row[1].strip(): hisses.add(row[1].strip())
-                except: pass
+            if row:
+                if row[0].strip():
+                    try: dates.append(date_str_to_dt(row[0].strip()))
+                    except: pass
+                if len(row)>1 and row[1].strip():
+                    hisses.add(row[1].strip())
     return sorted(dates,reverse=True),sorted(hisses)
 
 def fetch_for_target_range(session,start,end,endeks="09"):
