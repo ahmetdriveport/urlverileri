@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-import os, time, logging, requests, pandas as pd, numpy as np, certifi
-from datetime import datetime
+import os, time, logging, requests, pandas as pd, certifi
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -70,66 +69,39 @@ def fetch_for_target_range(session,start,end,endeks="09"):
         except: pass
     return []
 
-def temizle_fiyat(s):
-    if pd.isna(s): return None
-    if isinstance(s,(int,float,np.integer,np.floating)):
-        try: return float(s)
-        except: return None
-    try: s = str(s).strip()
-    except: return None
-    if s == "": return None
-    s = s.replace(",",".")
-    try: return float(s)
-    except: return None
-
-def pivotla(df,kolon,do_ffill=True):
-    df["Kod"] = df["Kod"].astype(str).str.strip().str.upper()
-    df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
-    df = df.dropna(subset=["Tarih","Kod",kolon])
-    bugun = pd.Timestamp.today().normalize()
-    df = df[df["Tarih"] <= bugun]
-    df[kolon] = df[kolon].map(temizle_fiyat)
-
-    pivot_df = df.groupby(["Tarih","Kod"])[kolon].first().unstack(fill_value=np.nan)
-    pivot_df = pivot_df.sort_index(ascending=False).sort_index(axis=1)
-
-    if do_ffill:
-        pivot_df = pivot_df.ffill()
-
-    pivot_df.index = pivot_df.index.strftime("%d.%m.%Y")
-    return pivot_df
-
 def main():
-    dates = load_dates(DATES_FILE)   # sadece tarihleri alıyoruz
+    dates = load_dates(DATES_FILE)
     session = requests.Session()
-    cookies = get_cookies_with_selenium(CHROMEDRIVER_PATH, HEADLESS, BASE_PAGE)
-    session.headers.update({"Cookie": cookie_header_from_list(cookies), "User-Agent": USER_AGENT})
-    all_data = []
-    cnt = 0
+    cookies = get_cookies_with_selenium(CHROMEDRIVER_PATH,HEADLESS,BASE_PAGE)
+    session.headers.update({"Cookie":cookie_header_from_list(cookies),"User-Agent":USER_AGENT})
+    all_data=[]; cnt=0
 
-    for i, dt in enumerate(dates):
+    for i,dt in enumerate(dates):
         end = dt.strftime("%d-%m-%Y")
-        if i + 1 < len(dates):
-            start = dates[i + 1].strftime("%d-%m-%Y")
-            recs = fetch_for_target_range(session, start, end)
+        if i+1 < len(dates):
+            start = dates[i+1].strftime("%d-%m-%Y")
+            recs = fetch_for_target_range(session,start,end)
             if recs:
-                for r in recs:
-                    r["Tarih"] = end
+                for r in recs: r["Tarih"] = end
                 all_data += recs
                 cnt += 1
         if cnt >= MAX_ROWS:   # sadece 5 gün
             break
 
     if all_data:
-        df = pd.DataFrame(all_data).rename(columns={"HISSE_KODU": "Kod", "YAB_ORAN_END": "Yabancı Oran"})
-        if {"Kod", "Yabancı Oran"} <= set(df.columns):
-            dfp = pivotla(df, "Yabancı Oran", do_ffill=True)  # hisse filtresi yok
-            dfp.to_csv(OUTPUT_FILE, encoding="utf-8", float_format="%.2f")
-            logger.info(f"{dfp.shape} tablo {OUTPUT_FILE} yazıldı")
-        else:
-            logger.warning("Eksik kolonlar, pivot yapılamadı.")
+        # Ham veriyi DataFrame'e çeviriyoruz
+        df = pd.DataFrame(all_data)
+
+        # CSV’ye direkt yazıyoruz, pivotlama yok
+        df.to_csv(
+            OUTPUT_FILE,
+            sep=";",              # ayraç net olsun
+            encoding="utf-8-sig", # Excel uyumlu
+            index=False           # index yazma
+        )
+        logger.info(f"Ham veri {df.shape} tablo {OUTPUT_FILE} yazıldı")
     else:
         logger.warning("Veri yok")
 
-if __name__ == "__main__":
+if __name__=="__main__":
     main()
