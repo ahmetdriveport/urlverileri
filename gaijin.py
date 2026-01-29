@@ -7,46 +7,45 @@ from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import TimeoutException
 from webdriver_manager.chrome import ChromeDriverManager
 
-CHROMEDRIVER_PATH = os.getenv("CHROMEDRIVER_PATH", "")
-HEADLESS = os.getenv("SELENIUM_HEADLESS", "true").lower() in ("1","true","yes")
-USER_AGENT = "Mozilla/5.0"
-AJAX_URL = "https://www.isyatirim.com.tr/_layouts/15/IsYatirim.Website/StockInfo/CompanyInfoAjax.aspx/GetYabanciOranlarXHR"
-BASE_PAGE = "https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/yabanci-oranlari.aspx"
-MAX_ROWS = 5
-DATES_FILE = os.path.join(os.path.dirname(__file__), "data", "dates.csv")
-OUTPUT_FILE = "gaijin.csv"
+CHROMEDRIVER_PATH=os.getenv("CHROMEDRIVER_PATH","")
+HEADLESS=os.getenv("SELENIUM_HEADLESS","true").lower() in ("1","true","yes")
+USER_AGENT="Mozilla/5.0"
+AJAX_URL="https://www.isyatirim.com.tr/_layouts/15/IsYatirim.Website/StockInfo/CompanyInfoAjax.aspx/GetYabanciOranlarXHR"
+BASE_PAGE="https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/yabanci-oranlari.aspx"
+MAX_ROWS=5
+DATES_FILE=os.path.join(os.path.dirname(__file__),"data","dates.csv")
+OUTPUT_FILE="gaijin.csv"
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO,format="%(asctime)s %(levelname)s %(message)s")
+logger=logging.getLogger(__name__)
 
-def get_cookies_with_selenium(path, headless, url):
-    opts = Options()
+def get_cookies_with_selenium(path,headless,url):
+    opts=Options()
     if headless:
         try: opts.add_argument("--headless=new")
         except: opts.add_argument("--headless")
     opts.add_argument("--no-sandbox"); opts.add_argument("--disable-dev-shm-usage")
     opts.add_argument("--disable-gpu"); opts.add_argument(f"--user-agent={USER_AGENT}")
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=opts)
+    driver=webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=opts)
     driver.set_page_load_timeout(60)
     for attempt in range(3):
-        try:
-            driver.get(url); time.sleep(2); cookies = driver.get_cookies(); driver.quit(); return cookies
+        try: driver.get(url); time.sleep(2); cookies=driver.get_cookies(); driver.quit(); return cookies
         except TimeoutException: logger.warning(f"Timeout {attempt+1}"); time.sleep(5)
         except Exception as e: logger.error(f"Selenium hata: {e}"); time.sleep(5)
     driver.quit(); raise RuntimeError("Cookie alınamadı")
 
 def cookie_header_from_list(cookies): return "; ".join([f"{x['name']}={x['value']}" for x in cookies])
 
-def safe_post(session, url, payload, headers, n=3, backoff=1.0):
+def safe_post(session,url,payload,headers,n=3,backoff=1.0):
     for attempt in range(n):
-        try: return session.post(url, json=payload, headers=headers, timeout=30, verify=certifi.where())
+        try: return session.post(url,json=payload,headers=headers,timeout=30,verify=certifi.where())
         except Exception as e: logger.error(f"POST hata: {e}"); time.sleep(backoff*(attempt+1))
     return None
 
 def date_str_to_dt(s):
-    s = s.strip().split()[0].replace("/", ".").replace("-", ".")
-    for fmt in ("%d.%m.%Y","%Y.%m.%d","%d.%m.%y"):
-        try: return datetime.strptime(s, fmt)
+    s=s.strip().split()[0].replace("/",".").replace("-",".")
+    for fmt in("%d.%m.%Y","%Y.%m.%d","%d.%m.%y"):
+        try: return datetime.strptime(s,fmt)
         except: continue
     raise ValueError(f"bad date {s}")
 
@@ -97,8 +96,6 @@ def pivotla(df,kolon,hisses,do_ffill=True):
         all_nan_cols=pivot_df.columns[pivot_df.isna().all()].tolist()
         cols_to_ffill=[c for c in pivot_df.columns if c not in all_nan_cols]
         if cols_to_ffill: pivot_df[cols_to_ffill]=pivot_df[cols_to_ffill].ffill()
-    for h in hisses:
-        if h not in pivot_df.columns: pivot_df[h]=np.nan
     pivot_df=pivot_df.reindex(columns=hisses)
     pivot_df=pivot_df.sort_index(ascending=False).sort_index(axis=1)
     return pivot_df
@@ -111,7 +108,7 @@ def main():
     all_data=[]; cnt=0
     for i,dt in enumerate(dates):
         end=dt.strftime("%d-%m-%Y")
-        for off in (3,10,20):
+        for off in(3,10,20):
             if i+off<len(dates):
                 start=dates[i+off].strftime("%d-%m-%Y")
                 recs=fetch_for_target_range(session,start,end)
