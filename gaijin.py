@@ -95,6 +95,9 @@ def pivotla(df,kolon,do_ffill=True):
         pivot_df = pivot_df.ffill()
     pivot_df.index = pivot_df.index.strftime("%d.%m.%Y")
 
+    # iki basamaklı ondalık
+    pivot_df = pivot_df.round(2)
+
     return pivot_df
 
 def main():
@@ -125,8 +128,8 @@ def main():
             dfp = pivotla(df,"Yabancı Oran",do_ffill=True)
             dfp.to_csv(
                 OUTPUT_FILE,
-                sep=";",              # ayraç net olsun
-                encoding="utf-8-sig", # Excel uyumlu
+                sep=";",              
+                encoding="utf-8-sig", 
                 float_format="%.2f"   # iki basamaklı ondalık
             )
             logger.info(f"{dfp.shape} tablo {OUTPUT_FILE} yazıldı")
