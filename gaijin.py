@@ -85,7 +85,7 @@ def temizle_fiyat(s):
     except: return None
 
 def pivotla(df,kolon,hisses,do_ffill=True):
-    df["Kod"]=df["Kod"].str.strip().str.upper()  # normalize
+    df["Kod"]=df["Kod"].astype(str).str.strip().str.upper()  # normalize
     df["Tarih"]=pd.to_datetime(df["Tarih"],dayfirst=True,errors="coerce")
     df=df.dropna(subset=["Tarih","Kod",kolon])
     bugun=pd.Timestamp.today().normalize()
@@ -97,7 +97,7 @@ def pivotla(df,kolon,hisses,do_ffill=True):
         cols_to_ffill=[c for c in pivot_df.columns if c not in all_nan_cols]
         if cols_to_ffill: pivot_df[cols_to_ffill]=pivot_df[cols_to_ffill].ffill()
     pivot_df=pivot_df.reindex(columns=hisses)
-    pivot_df=pivot_df.loc[:,~pivot_df.columns.duplicated()]  # tekrarları düşür
+    pivot_df=pivot_df.loc[:,~pivot_df.columns.duplicated()]  # tekrar eden kolonları düşür
     pivot_df=pivot_df.sort_index(ascending=False).sort_index(axis=1)
     return pivot_df
 
