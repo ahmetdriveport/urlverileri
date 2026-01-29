@@ -12,7 +12,6 @@ HEADLESS = os.getenv("SELENIUM_HEADLESS","true").lower() in ("1","true","yes")
 USER_AGENT = "Mozilla/5.0"
 AJAX_URL = "https://www.isyatirim.com.tr/_layouts/15/IsYatirim.Website/StockInfo/CompanyInfoAjax.aspx/GetYabanciOranlarXHR"
 BASE_PAGE = "https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/yabanci-oranlari.aspx"
-MAX_ROWS = 5
 DATES_FILE = os.path.join(os.path.dirname(__file__),"data","dates.csv")
 OUTPUT_FILE = "gaijin.csv"
 
@@ -57,10 +56,9 @@ def load_dates_and_hisses(path=DATES_FILE):
     df = pd.read_csv(path)
     # Tarih sütununu datetime'a çevir
     df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
-    # Hisse kodlarını normalize et
-    hisses = df["Hisse"].dropna().str.strip().str.upper().unique().tolist()
-    # Tarihleri en güncelden eskiye sırala
+    # Sadece tarihleri alıyoruz, hisse listesi kullanılmıyor
     dates = df["Tarih"].dropna().sort_values(ascending=False).tolist()
+    hisses = []  # boş liste
     return dates, hisses
 
 def fetch_for_target_range(session,start,end,endeks="09"):
@@ -86,7 +84,7 @@ def temizle_fiyat(s):
     try: return float(s)
     except: return None
 
-def pivotla(df,kolon,hisses,do_ffill=True):
+def pivotla(df,kolon,do_ffill=True):
     df["Kod"] = df["Kod"].astype(str).str.strip().str.upper()
     df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
     df = df.dropna(subset=["Tarih","Kod",kolon])
@@ -101,7 +99,6 @@ def pivotla(df,kolon,hisses,do_ffill=True):
         cols_to_ffill = [c for c in pivot_df.columns if c not in all_nan_cols]
         if cols_to_ffill: pivot_df[cols_to_ffill] = pivot_df[cols_to_ffill].ffill()
 
-    pivot_df = pivot_df.reindex(columns=hisses)
     pivot_df = pivot_df.loc[:,~pivot_df.columns.duplicated()]
     pivot_df = pivot_df.sort_index(ascending=False).sort_index(axis=1)
 
@@ -115,23 +112,21 @@ def main():
     session = requests.Session()
     cookies = get_cookies_with_selenium(CHROMEDRIVER_PATH,HEADLESS,BASE_PAGE)
     session.headers.update({"Cookie":cookie_header_from_list(cookies),"User-Agent":USER_AGENT})
-    all_data=[]; cnt=0
+    all_data=[]
     for i,dt in enumerate(dates):
         end = dt.strftime("%d-%m-%Y")
-        for off in (3,10,20):
-            if i+off < len(dates):
-                start = dates[i+off].strftime("%d-%m-%Y")
-                recs = fetch_for_target_range(session,start,end)
-                if recs:
-                    for r in recs: r["Tarih"] = end
-                    all_data += recs; cnt += 1; break
-        if cnt >= MAX_ROWS: break
+        if i+1 < len(dates):
+            start = dates[i+1].strftime("%d-%m-%Y")
+            recs = fetch_for_target_range(session,start,end)
+            if recs:
+                for r in recs: r["Tarih"] = end
+                all_data += recs
     if all_data:
         df = pd.DataFrame(all_data).rename(columns={"HISSE_KODU":"Kod","YAB_ORAN_END":"Yabancı Oran"})
         if {"Kod","Yabancı Oran"} <= set(df.columns):
-            dfp = pivotla(df,"Yabancı Oran",hisses,do_ffill=True)
+            dfp = pivotla(df,"Yabancı Oran",do_ffill=True)
             dfp.to_csv(OUTPUT_FILE, encoding="utf-8", float_format="%.2f")
-            logger.info(f"{dfp.shape} tablo {OUTPUT_FILE} yazıldı (filtre: {len(hisses)} hisse)")
+            logger.info(f"{dfp.shape} tablo {OUTPUT_FILE} yazıldı")
         else:
             logger.warning("Eksik kolonlar, pivot yapılamadı.")
     else:
