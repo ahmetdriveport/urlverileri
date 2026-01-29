@@ -27,16 +27,16 @@ def get_cookies_with_selenium(path,headless,url):
     opts.add_argument("--disable-gpu"); opts.add_argument(f"--user-agent={USER_AGENT}")
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=opts)
     driver.set_page_load_timeout(60)
-    for attempt in range(3):
+    for attempt in range(5):  # retry güçlendirildi
         try:
             driver.get(url); time.sleep(2)
             cookies = driver.get_cookies()
             driver.quit()
             return cookies
         except TimeoutException:
-            logger.warning(f"Timeout {attempt+1}"); time.sleep(5)
+            logger.warning(f"Timeout {attempt+1}"); time.sleep(2*(attempt+1))
         except Exception as e:
-            logger.error(f"Selenium hata: {e}"); time.sleep(5)
+            logger.error(f"Selenium hata: {e}"); time.sleep(2*(attempt+1))
     driver.quit()
     raise RuntimeError("Cookie alınamadı")
 
