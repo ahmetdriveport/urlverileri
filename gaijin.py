@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, time, logging, requests, pandas as pd, numpy as np, certifi
+import os, time, logging, requests, pandas as pd, certifi
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -69,38 +69,6 @@ def fetch_for_target_range(session,start,end,endeks="09"):
         except: pass
     return []
 
-def temizle_fiyat(s):
-    if pd.isna(s): return None
-    try:
-        s = str(s).strip().replace(",", ".")
-        return float(s)
-    except:
-        return None
-
-def pivotla(df,kolon,do_ffill=True):
-    df["Kod"] = df["Kod"].astype(str).str.strip().str.upper()
-    df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
-    df = df.dropna(subset=["Tarih","Kod",kolon])
-    df[kolon] = df[kolon].map(temizle_fiyat)
-
-    pivot_df = pd.pivot_table(
-        df,
-        index="Tarih",
-        columns="Kod",
-        values=kolon,
-        aggfunc="first"
-    )
-
-    pivot_df = pivot_df.sort_index(ascending=False).sort_index(axis=1)
-    if do_ffill:
-        pivot_df = pivot_df.ffill()
-    pivot_df.index = pivot_df.index.strftime("%d.%m.%Y")
-
-    # iki basamaklı ondalık
-    pivot_df = pivot_df.round(2)
-
-    return pivot_df
-
 def main():
     dates = load_dates(DATES_FILE)
     session = requests.Session()
@@ -123,19 +91,17 @@ def main():
     if all_data:
         df = pd.DataFrame(all_data).rename(columns={
             "HISSE_KODU":"Kod",
-            "YAB_ORAN_END":"Yabancı Oran"
+            "YAB_ORAN_END":"Yabancı Oran",
+            "PRICE_TL":"Kapanış"
         })
-        if {"Kod","Yabancı Oran"} <= set(df.columns):
-            dfp = pivotla(df,"Yabancı Oran",do_ffill=True)
-            dfp.to_csv(
-                OUTPUT_FILE,
-                sep=",",              # senin istediğin gibi virgül ayraç
-                encoding="utf-8-sig", 
-                float_format="%.2f"   # örn: 13.72
-            )
-            logger.info(f"{dfp.shape} tablo {OUTPUT_FILE} yazıldı")
-        else:
-            logger.warning("Eksik kolonlar, pivot yapılamadı.")
+        # Pivotlama yok, sayı temizleme yok → JSON ne verdiyse aynen yaz
+        df.to_csv(
+            OUTPUT_FILE,
+            sep=",",
+            encoding="utf-8-sig",
+            index=False
+        )
+        logger.info(f"{df.shape} satır {OUTPUT_FILE} yazıldı")
     else:
         logger.warning("Veri yok")
 
