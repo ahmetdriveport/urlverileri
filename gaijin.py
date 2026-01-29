@@ -13,7 +13,7 @@ AJAX_URL = "https://www.isyatirim.com.tr/_layouts/15/IsYatirim.Website/StockInfo
 BASE_PAGE = "https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/yabanci-oranlari.aspx"
 DATES_FILE = os.path.join(os.path.dirname(__file__),"data","dates.csv")
 OUTPUT_FILE = "gaijin.csv"
-MAX_ROWS = 5   # sadece 5 tarih aralığı işlenecek
+MAX_ROWS = 5
 
 logging.basicConfig(level=logging.INFO,format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -43,20 +43,21 @@ def get_cookies_with_selenium(path,headless,url):
 def cookie_header_from_list(cookies):
     return ", ".join([f"{x['name']}={x['value']}" for x in cookies])
 
-def safe_post(session,url,payload,headers,n=3,backoff=1.0):
+def safe_post(session,url,payload,headers,n=5,backoff=2.0):
     for attempt in range(n):
         try:
-            return session.post(url,json=payload,headers=headers,timeout=30,verify=certifi.where())
+            r = session.post(url,json=payload,headers=headers,timeout=30,verify=certifi.where())
+            if r.ok:
+                return r
         except Exception as e:
-            logger.error(f"POST hata: {e}")
-            time.sleep(backoff*(attempt+1))
+            logger.error(f"POST hata: {e}, deneme {attempt+1}/{n}")
+            time.sleep(backoff * (attempt+1))
     return None
 
 def load_dates_and_hisseler(path=DATES_FILE):
     df = pd.read_csv(path)
     df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
     dates = df["Tarih"].dropna().sort_values(ascending=False).tolist()
-    # 2. sütundaki hisse kodlarını al
     hisseler = df.iloc[:,1].dropna().astype(str).str.strip().str.upper().unique().tolist()
     return dates, hisseler
 
@@ -105,13 +106,25 @@ def main():
         # 🔧 Sayısal değerleri 2 basamağa yuvarla
         df = df.round(2)
 
-        df.to_csv(
+        # 🔧 Pivotlama: yatay tabloya çevir
+        df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
+        pivot_df = pd.pivot_table(
+            df,
+            index="Tarih",
+            columns="HISSE_KODU",
+            values="YAB_ORAN_END",
+            aggfunc="first"
+        )
+        pivot_df = pivot_df.sort_index(ascending=False).sort_index(axis=1)
+        pivot_df = pivot_df.round(2)
+        pivot_df.index = pivot_df.index.strftime("%d.%m.%Y")
+
+        pivot_df.to_csv(
             OUTPUT_FILE,
             sep=",",
-            encoding="utf-8-sig",
-            index=False
+            encoding="utf-8-sig"
         )
-        logger.info(f"{df.shape} satır {OUTPUT_FILE} yazıldı (filtrelenmiş ve tekilleştirilmiş hisseler)")
+        logger.info(f"{pivot_df.shape} tablo {OUTPUT_FILE} yazıldı (pivotlanmış)")
     else:
         logger.warning("Veri yok")
 
