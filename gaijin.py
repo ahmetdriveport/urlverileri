@@ -104,7 +104,7 @@ def main():
         df = df[df["HISSE_KODU"].isin(hisseler)]
 
         # 🔧 Sayısal değerleri 2 basamağa yuvarla
-        df = df.round(2)
+        df["YAB_ORAN_END"] = pd.to_numeric(df["YAB_ORAN_END"], errors="coerce").round(2)
 
         # 🔧 Pivotlama: yatay tabloya çevir
         df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
@@ -116,7 +116,6 @@ def main():
             aggfunc="first"
         )
         pivot_df = pivot_df.sort_index(ascending=False).sort_index(axis=1)
-        pivot_df = pivot_df.round(2)
         pivot_df.index = pivot_df.index.strftime("%d.%m.%Y")
 
         pivot_df.to_csv(
