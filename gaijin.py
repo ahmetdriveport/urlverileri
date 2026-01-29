@@ -52,11 +52,13 @@ def safe_post(session,url,payload,headers,n=3,backoff=1.0):
             time.sleep(backoff*(attempt+1))
     return None
 
-def load_dates(path=DATES_FILE):
+def load_dates_and_hisseler(path=DATES_FILE):
     df = pd.read_csv(path)
     df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
     dates = df["Tarih"].dropna().sort_values(ascending=False).tolist()
-    return dates
+    # 2. sütundaki hisse kodlarını al
+    hisseler = df.iloc[:,1].dropna().astype(str).str.strip().str.upper().unique().tolist()
+    return dates, hisseler
 
 def fetch_for_target_range(session,start,end,endeks="09"):
     payload = {"baslangicTarih":start,"bitisTarihi":end,"sektor":None,"endeks":endeks,"hisse":None}
@@ -70,7 +72,7 @@ def fetch_for_target_range(session,start,end,endeks="09"):
     return []
 
 def main():
-    dates = load_dates(DATES_FILE)
+    dates, hisseler = load_dates_and_hisseler(DATES_FILE)
     session = requests.Session()
     cookies = get_cookies_with_selenium(CHROMEDRIVER_PATH,HEADLESS,BASE_PAGE)
     session.headers.update({"Cookie":cookie_header_from_list(cookies),"User-Agent":USER_AGENT})
@@ -90,14 +92,20 @@ def main():
 
     if all_data:
         df = pd.DataFrame(all_data)[["Tarih", "HISSE_KODU", "YAB_ORAN_END"]]
-        df = df.round(2)  # 🔧 Sayısal değerleri 2 basamağa yuvarla
+
+        # 🔧 Filtreleme işlemi CSV’ye yazmadan hemen önce
+        df["HISSE_KODU"] = df["HISSE_KODU"].astype(str).str.strip().str.upper()
+        df = df[df["HISSE_KODU"].isin(hisseler)]
+
+        df = df.round(2)  # sayısal değerleri 2 basamağa yuvarla
+
         df.to_csv(
             OUTPUT_FILE,
             sep=",",
             encoding="utf-8-sig",
             index=False
         )
-        logger.info(f"{df.shape} satır {OUTPUT_FILE} yazıldı")
+        logger.info(f"{df.shape} satır {OUTPUT_FILE} yazıldı (filtrelenmiş hisseler)")
     else:
         logger.warning("Veri yok")
 
