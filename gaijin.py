@@ -13,7 +13,7 @@ AJAX_URL = "https://www.isyatirim.com.tr/_layouts/15/IsYatirim.Website/StockInfo
 BASE_PAGE = "https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/yabanci-oranlari.aspx"
 DATES_FILE = os.path.join(os.path.dirname(__file__),"data","dates.csv")
 OUTPUT_FILE = "gaijin.csv"
-MAX_ROWS = 5   # sadece 5 tarih aralığı işlenecek
+MAX_ROWS = 5
 
 logging.basicConfig(level=logging.INFO,format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -85,16 +85,12 @@ def main():
                 for r in recs: r["Tarih"] = end
                 all_data += recs
                 cnt += 1
-        if cnt >= MAX_ROWS:   # sadece 5 gün
+        if cnt >= MAX_ROWS:
             break
 
     if all_data:
-        df = pd.DataFrame(all_data).rename(columns={
-            "HISSE_KODU":"Kod",
-            "YAB_ORAN_END":"Yabancı Oran",
-            "PRICE_TL":"Kapanış"
-        })
-        # Pivotlama yok, sayı temizleme yok → JSON ne verdiyse aynen yaz
+        df = pd.DataFrame(all_data)[["Tarih", "HISSE_KODU", "YAB_ORAN_END"]]
+        df = df.round(2)  # 🔧 Sayısal değerleri 2 basamağa yuvarla
         df.to_csv(
             OUTPUT_FILE,
             sep=",",
