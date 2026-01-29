@@ -41,7 +41,7 @@ def get_cookies_with_selenium(path,headless,url):
     raise RuntimeError("Cookie alınamadı")
 
 def cookie_header_from_list(cookies):
-    return "; ".join([f"{x['name']}={x['value']}" for x in cookies])
+    return ", ".join([f"{x['name']}={x['value']}" for x in cookies])
 
 def safe_post(session,url,payload,headers,n=3,backoff=1.0):
     for attempt in range(n):
@@ -129,7 +129,7 @@ def main():
             dfp = pivotla(df,"Yabancı Oran",do_ffill=True)
             dfp.to_csv(
                 OUTPUT_FILE,
-                sep=";",              
+                sep=",",              # senin istediğin gibi virgül ayraç
                 encoding="utf-8-sig", 
                 float_format="%.2f"   # örn: 13.72
             )
