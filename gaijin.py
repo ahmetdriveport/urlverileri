@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, time, logging, requests, pandas as pd, certifi
+import os, time, logging, requests, pandas as pd, numpy as np, certifi
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -69,6 +69,34 @@ def fetch_for_target_range(session,start,end,endeks="09"):
         except: pass
     return []
 
+def temizle_fiyat(s):
+    if pd.isna(s): return None
+    try:
+        s = str(s).strip().replace(",",".")
+        return float(s)
+    except: return None
+
+def pivotla(df,kolon,do_ffill=True):
+    df["Kod"] = df["Kod"].astype(str).str.strip().str.upper()
+    df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
+    df = df.dropna(subset=["Tarih","Kod",kolon])
+    df[kolon] = df[kolon].map(temizle_fiyat)
+
+    pivot_df = pd.pivot_table(
+        df,
+        index="Tarih",
+        columns="Kod",
+        values=kolon,
+        aggfunc="first"
+    )
+
+    pivot_df = pivot_df.sort_index(ascending=False).sort_index(axis=1)
+    if do_ffill:
+        pivot_df = pivot_df.ffill()
+    pivot_df.index = pivot_df.index.strftime("%d.%m.%Y")
+
+    return pivot_df
+
 def main():
     dates = load_dates(DATES_FILE)
     session = requests.Session()
@@ -89,17 +117,21 @@ def main():
             break
 
     if all_data:
-        # Ham veriyi DataFrame'e çeviriyoruz
-        df = pd.DataFrame(all_data)
-
-        # CSV’ye direkt yazıyoruz, pivotlama yok
-        df.to_csv(
-            OUTPUT_FILE,
-            sep=";",              # ayraç net olsun
-            encoding="utf-8-sig", # Excel uyumlu
-            index=False           # index yazma
-        )
-        logger.info(f"Ham veri {df.shape} tablo {OUTPUT_FILE} yazıldı")
+        df = pd.DataFrame(all_data).rename(columns={
+            "HISSE_KODU":"Kod",
+            "YAB_ORAN_END":"Yabancı Oran"
+        })
+        if {"Kod","Yabancı Oran"} <= set(df.columns):
+            dfp = pivotla(df,"Yabancı Oran",do_ffill=True)
+            dfp.to_csv(
+                OUTPUT_FILE,
+                sep=";",              # ayraç net olsun
+                encoding="utf-8-sig", # Excel uyumlu
+                float_format="%.2f"   # iki basamaklı ondalık
+            )
+            logger.info(f"{dfp.shape} tablo {OUTPUT_FILE} yazıldı")
+        else:
+            logger.warning("Eksik kolonlar, pivot yapılamadı.")
     else:
         logger.warning("Veri yok")
 
