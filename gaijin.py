@@ -97,24 +97,17 @@ def main():
         # 🔧 Tekrarları önle
         df = df.drop_duplicates(subset=["Tarih", "HISSE_KODU", "YAB_ORAN_END"])
 
-        # 🔧 Hisse kodlarını normalize et
+        # 🔧 Normalize et
+        df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
+        df = df.dropna(subset=["Tarih"])
         df["HISSE_KODU"] = df["HISSE_KODU"].astype(str).str.strip().str.upper()
-
-        # 🔧 dates.csv’deki hisselerle filtrele
-        df = df[df["HISSE_KODU"].isin(hisseler)]
-
-        # 🔧 Sayısal değerleri 2 basamağa yuvarla
         df["YAB_ORAN_END"] = pd.to_numeric(df["YAB_ORAN_END"], errors="coerce").round(2)
 
-        # 🔧 Pivotlama: yatay tabloya çevir
-        df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
-        pivot_df = pd.pivot_table(
-            df,
-            index="Tarih",
-            columns="HISSE_KODU",
-            values="YAB_ORAN_END",
-            aggfunc="first"
-        )
+        # 🔧 Filtreleme
+        df = df[df["HISSE_KODU"].isin(hisseler)]
+
+        # 🔧 Pivotlama
+        pivot_df = df.pivot(index="Tarih", columns="HISSE_KODU", values="YAB_ORAN_END")
         pivot_df = pivot_df.sort_index(ascending=False).sort_index(axis=1)
         pivot_df.index = pivot_df.index.strftime("%d.%m.%Y")
 
