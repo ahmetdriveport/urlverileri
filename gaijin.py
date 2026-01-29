@@ -17,7 +17,6 @@ USER_AGENT = "Mozilla/5.0"
 AJAX_URL = "https://www.isyatirim.com.tr/_layouts/15/IsYatirim.Website/StockInfo/CompanyInfoAjax.aspx/GetYabanciOranlarXHR"
 BASE_PAGE = "https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/yabanci-oranlari.aspx"
 MAX_ROWS = 5
-# Yol repoya göre ayarlandı
 DATES_FILE = os.path.join(os.path.dirname(__file__), "data", "dates.csv")
 OUTPUT_FILE = "gaijin.csv"
 
@@ -79,8 +78,10 @@ def date_str_to_dt(s):
             continue
     raise ValueError(f"bad date {s}")
 
-def load_dates_from_csv(path=DATES_FILE):
+# 🔑 Tarih ve hisse kodlarını birlikte oku
+def load_dates_and_hisses(path=DATES_FILE):
     dates = []
+    hisses = set()
     with open(path, "r", encoding="utf-8") as f:
         for row in csv.reader(f):
             if row and row[0].strip():
@@ -88,9 +89,11 @@ def load_dates_from_csv(path=DATES_FILE):
                     dt = date_str_to_dt(row[0].strip())
                     if dt.date() <= datetime.now(UTC).date():
                         dates.append(dt)
+                        if len(row) > 1 and row[1].strip():
+                            hisses.add(row[1].strip())
                 except:
                     pass
-    return sorted(dates, reverse=True)
+    return sorted(dates, reverse=True), sorted(hisses)
 
 def fetch_for_target_range(session, start, end, endeks="09"):
     payload = {"baslangicTarih": start, "bitisTarihi": end, "sektor": None, "endeks": endeks, "hisse": None}
@@ -111,7 +114,7 @@ def fetch_for_target_range(session, start, end, endeks="09"):
     return []
 
 def main():
-    dates = load_dates_from_csv(DATES_FILE)
+    dates, hisses = load_dates_and_hisses(DATES_FILE)
     session = requests.Session()
     cookies = get_cookies_with_selenium(CHROMEDRIVER_PATH, HEADLESS, BASE_PAGE)
     session.headers.update({"Cookie": cookie_header_from_list(cookies), "User-Agent": USER_AGENT})
@@ -135,13 +138,15 @@ def main():
 
     if all_data:
         df = pd.DataFrame(all_data)
-        # Kolon kontrolü
         cols = [c for c in ["Tarih", "HISSE_KODU", "YAB_ORAN_END"] if c in df.columns]
         df = df[cols].rename(columns={"HISSE_KODU": "Kod", "YAB_ORAN_END": "Yabancı Oran"})
         if "Kod" in df.columns and "Yabancı Oran" in df.columns:
             dfp = df.pivot_table(index="Tarih", columns="Kod", values="Yabancı Oran", aggfunc="first").sort_index()
+            # 🔑 Hisse filtreleme
+            if hisses:
+                dfp = dfp[[c for c in dfp.columns if c in hisses]]
             dfp.to_csv(OUTPUT_FILE, encoding="utf-8")
-            logger.info(f"{dfp.shape} tablo {OUTPUT_FILE} yazıldı")
+            logger.info(f"{dfp.shape} tablo {OUTPUT_FILE} yazıldı (filtre: {len(hisses)} hisse)")
         else:
             logger.warning("Beklenen kolonlar eksik, pivot yapılamadı.")
     else:
