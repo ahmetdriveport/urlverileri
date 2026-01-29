@@ -2,6 +2,7 @@ name: gaijin
 
 on:
   schedule:
+    # Türkiye saatiyle 13:00 → UTC 10:00
     - cron: "0 10 * * *"
   workflow_dispatch:
 
@@ -19,7 +20,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          pip install --upgrade pip
+          pip install certifi selenium webdriver-manager
 
       - name: Run gaijin
         run: python gaijin.py
