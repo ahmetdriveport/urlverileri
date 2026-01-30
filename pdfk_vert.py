@@ -11,7 +11,7 @@ def parse_excel(url,tarih,hedef):
     for j in range(len(df)):
         kod=str(df.iat[j,1]).strip().upper()
         if not kod or kod=="NAN" or kod not in hedef: continue
-        rows.append({"Tarih":tarih,"Hisse_Kodu":kod,"Msci": "MSCI" if pd.notna(df.iat[j,6]) else "",
+        rows.append({"Tarih":tarih,"Hisse_Kodu":kod,"Msci":"MSCI" if pd.notna(df.iat[j,6]) else "",
                      "Ozkaynak":df.iat[j,7],"Sermaye":df.iat[j,8],"Aktifler":df.iat[j,9],
                      "Netborc":df.iat[j,14],"Yillik_Kar":df.iat[j,17]})
     return pd.DataFrame(rows)
@@ -19,7 +19,8 @@ def parse_excel(url,tarih,hedef):
 def bul_ilk_gun(lst):
     tz=pytz.timezone("Europe/Istanbul"); today=datetime.now(tz).date()
     tarihler=pd.to_datetime([x.strip() for x in lst if str(x).strip()],
-                            format="%d.%m.%Y",dayfirst=True,errors="coerce").dropna().dt.date.tolist()
+                            format="%d.%m.%Y",dayfirst=True,errors="coerce")
+    tarihler=[d.date() for d in tarihler if not pd.isna(d)]
     return today if today in tarihler else max([d for d in tarihler if d<today],default=None)
 
 def sirali(lst,ilk,n):
@@ -29,7 +30,7 @@ def sirali(lst,ilk,n):
     return s.iloc[idx:idx+n].dt.date.tolist()
 
 def secili(lst,n=10):
-    ilk=bul_ilk_gun(lst); 
+    ilk=bul_ilk_gun(lst)
     return [] if not ilk else [d.strftime("%d.%m.%Y") for d in sirali(lst,ilk,n)]
 
 def main():
