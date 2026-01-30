@@ -21,7 +21,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install requests pandas numpy openpyxl
+          pip install requests pandas numpy openpyxl pytz   # ✅ eksik paket eklendi
 
       - name: Run script
         run: python pdfk_vert.py   # ✅ doğru dosya adı
@@ -31,4 +31,4 @@ jobs:
         with:
           name: vert-pdfk-excel
           path: vert_pdfk.xlsx
-          retention-days: 3   # senin istediğin süre
+          retention-days: 3
