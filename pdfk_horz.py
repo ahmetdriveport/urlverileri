@@ -7,8 +7,9 @@ if not os.path.exists("pdfk_vert.xlsx"):
     raise FileNotFoundError("❌ pdfk_vert.xlsx bulunamadı. Önce vert script çalışmalı.")
 
 df_src = pd.read_excel("pdfk_vert.xlsx", engine="openpyxl")
-df_src["Hisse_Kodu"] = df_src["Hisse Kodu"].str.strip().str.upper()
-df_src["Tarih"] = pd.to_datetime(df_src["Tarih"], format="%d.%m.%Y", errors="coerce")
+df_src.columns = df_src.columns.str.strip()
+df_src["Hisse_Kodu"] = df_src["Hisse_Kodu"].astype(str).str.strip().str.upper()
+df_src["Tarih"] = pd.to_datetime(df_src["Tarih"].astype(str), format="%d.%m.%Y", errors="coerce")
 
 latest_values, pivot_tables = {}, {}
 
