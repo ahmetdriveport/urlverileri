@@ -1,142 +1,75 @@
-import requests
-import pandas as pd
-import numpy as np
+import requests, pandas as pd, numpy as np
 from io import BytesIO
 from datetime import datetime
-import pytz
-import os
+import pytz, os
 
-BASE_URL = "https://img.euromsg.net/54165B4951BD4D81B4668B9B9A6D7E54/files"
+BASE_URL="https://img.euromsg.net/54165B4951BD4D81B4668B9B9A6D7E54/files"
 
-def parse_excel(url, tarih, hedef_kodlar):
-    r = requests.get(url, timeout=15)
-    r.raise_for_status()
-    df_raw = pd.read_excel(BytesIO(r.content), header=None)
+def parse_excel(url,tarih,hedef):
+    r=requests.get(url,timeout=15); r.raise_for_status()
+    df=pd.read_excel(BytesIO(r.content),header=None); rows=[]
+    for j in range(len(df)):
+        kod=str(df.iat[j,1]).strip().upper()
+        if not kod or kod=="NAN" or kod not in hedef: continue
+        rows.append({"Tarih":tarih,"Hisse_Kodu":kod,"Msci": "MSCI" if pd.notna(df.iat[j,6]) else "",
+                     "Ozkaynak":df.iat[j,7],"Sermaye":df.iat[j,8],"Aktifler":df.iat[j,9],
+                     "Netborc":df.iat[j,14],"Yillik_Kar":df.iat[j,17]})
+    return pd.DataFrame(rows)
 
-    veri_listesi = []
-    for j in range(len(df_raw)):
-        kod = str(df_raw.iat[j, 1]).strip().upper()
-        if not kod or kod.lower() == "nan":
-            continue
-        if kod not in hedef_kodlar:
-            continue
+def bul_ilk_gun(lst):
+    tz=pytz.timezone("Europe/Istanbul"); today=datetime.now(tz).date()
+    tarihler=pd.to_datetime([x.strip() for x in lst if str(x).strip()],
+                            format="%d.%m.%Y",dayfirst=True,errors="coerce").dropna().dt.date.tolist()
+    return today if today in tarihler else max([d for d in tarihler if d<today],default=None)
 
-        msci_tr = "MSCI" if pd.notna(df_raw.iat[j, 6]) else ""
-        ozkaynak = df_raw.iat[j, 7]
-        sermaye  = df_raw.iat[j, 8]
-        aktifler = df_raw.iat[j, 9]
-        net_borc = df_raw.iat[j, 14]
-        net_kar  = df_raw.iat[j, 17]
+def sirali(lst,ilk,n):
+    s=pd.to_datetime(pd.Series(lst),format="%d.%m.%Y",dayfirst=True,errors="coerce").dropna()
+    try: idx=s[s.dt.date==ilk].index[0]
+    except: return []
+    return s.iloc[idx:idx+n].dt.date.tolist()
 
-        satir = {
-            "Tarih": tarih,
-            "Hisse Kodu": kod,
-            "MSCI Turkey ETF": msci_tr,
-            "Özkaynaklar": ozkaynak,
-            "Ödenmiş Sermaye": sermaye,
-            "Toplam Aktifler": aktifler,
-            "Net Borç": net_borc,
-            "Yıllık Net Kar": net_kar
-        }
-        veri_listesi.append(satir)
-
-    return pd.DataFrame(veri_listesi)
-
-def bul_ilk_gun_csv(csv_tarihleri):
-    tz = pytz.timezone("Europe/Istanbul")
-    today = datetime.now(tz).date()
-
-    temiz_tarihler = [str(x).strip() for x in csv_tarihleri if str(x).strip()]
-    tarihler_dt = pd.to_datetime(temiz_tarihler, format="%d.%m.%Y", dayfirst=True, errors="coerce")
-    liste_tarihleri = [t.date() for t in tarihler_dt if pd.notna(t)]
-
-    if today in liste_tarihleri:
-        return today
-    else:
-        onceki_gunler = [d for d in liste_tarihleri if d < today]
-        return max(onceki_gunler) if onceki_gunler else None
-
-def sirali_gunler(csv_tarihleri, ilk_gun, hedef_gun_sayisi):
-    tarih_serisi = pd.to_datetime(pd.Series(csv_tarihleri), format="%d.%m.%Y", dayfirst=True, errors="coerce").dropna()
-    try:
-        baslangic_index = tarih_serisi[tarih_serisi.dt.date == ilk_gun].index[0]
-    except IndexError:
-        return []
-    return tarih_serisi.iloc[baslangic_index:baslangic_index + hedef_gun_sayisi].dt.date.tolist()
-
-def secili_tarihleri_bul_csv(csv_tarihleri, hedef_gun_sayisi=10):
-    ilk_gun = bul_ilk_gun_csv(csv_tarihleri)
-    if not ilk_gun:
-        return []
-    gunler = sirali_gunler(csv_tarihleri, ilk_gun, hedef_gun_sayisi)
-    return [g.strftime("%d.%m.%Y") for g in gunler]
+def secili(lst,n=10):
+    ilk=bul_ilk_gun(lst); 
+    return [] if not ilk else [d.strftime("%d.%m.%Y") for d in sirali(lst,ilk,n)]
 
 def main():
-    df_dates = pd.read_csv("data/dates.csv", encoding="utf-8")
-    excel_tarihleri = df_dates.iloc[:,0].dropna().astype(str).str.strip().tolist()
-    codes = df_dates.iloc[:,1].dropna().astype(str).str.strip().str.upper().tolist()
-    codes_set = set(codes)
+    df_dates=pd.read_csv("data/dates.csv",encoding="utf-8")
+    tarih_list=df_dates.iloc[:,0].dropna().astype(str).str.strip().tolist()
+    codes=df_dates.iloc[:,1].dropna().astype(str).str.strip().str.upper().tolist()
+    secilen=secili(tarih_list,10)
 
-    secilen_tarihler = secili_tarihleri_bul_csv(excel_tarihleri, hedef_gun_sayisi=10)
-
-    all_dfs = []
-    for d_orig in secilen_tarihler:
-        d_fmt = datetime.strptime(d_orig, "%d.%m.%Y").strftime("%Y_%m_%d")
-        url = f"{BASE_URL}/ZRY Göstergeler-{d_fmt}.xlsx"
+    dfs=[]
+    for d in secilen:
+        url=f"{BASE_URL}/ZRY Göstergeler-{datetime.strptime(d,'%d.%m.%Y').strftime('%Y_%m_%d')}.xlsx"
         try:
-            df_day = parse_excel(url, d_orig, codes_set)
-            if not df_day.empty:
-                all_dfs.append(df_day)
-        except Exception as e:
-            print(f"Excel okunamadı: {url}, hata: {e}")
-            continue
+            df=parse_excel(url,d,set(codes))
+            if not df.empty: dfs.append(df)
+        except Exception as e: print("Excel okunamadı:",url,"hata:",e)
 
-    if not all_dfs:
-        raise ValueError("❌ Hiç veri bulunamadı, pdfk_vert.xlsx oluşturulamadı.")
+    if not dfs: raise ValueError("❌ Hiç veri bulunamadı, pdfk_vert.xlsx oluşturulamadı.")
+    df_final=pd.concat(dfs,ignore_index=True)
+    df_final["Hisse_Kodu"]=df_final["Hisse_Kodu"].str.strip().str.upper()
+    df_final=df_final[df_final["Hisse_Kodu"].isin(set(codes))].drop_duplicates(subset=["Tarih","Hisse_Kodu"])
 
-    df_final = pd.concat(all_dfs, ignore_index=True)
+    oz=pd.to_numeric(df_final["Ozkaynak"],errors="coerce")*1_000_000
+    se=pd.to_numeric(df_final["Sermaye"],errors="coerce")*1_000_000
+    ak=pd.to_numeric(df_final["Aktifler"],errors="coerce")*1_000_000
+    nb=pd.to_numeric(df_final["Netborc"],errors="coerce")*1_000_000
+    yk=pd.to_numeric(df_final["Yillik_Kar"],errors="coerce")*1_000_000
 
-    # Normalize hisse kodları ve sadece referans listede olanları tut
-    df_final["Hisse Kodu"] = df_final["Hisse Kodu"].str.strip().str.upper()
-    df_final = df_final[df_final["Hisse Kodu"].isin(codes_set)]
+    df_final["Pd_Carpan"]=np.where(oz!=0,se/oz,np.nan).round(5)
+    df_final["Fk_Carpan"]=np.where(yk!=0,se/yk,np.nan).round(5)
+    df_final["Ozkarlilik"]=np.where(oz!=0,(yk/oz)*100,np.nan).round(2)
+    df_final["Aktifkarlilik"]=np.where(ak!=0,(yk/ak)*100,np.nan).round(2)
 
-    # Aynı Tarih + Hisse Kodu kombinasyonunda tekrarları kaldır
-    df_final = df_final.drop_duplicates(subset=["Tarih", "Hisse Kodu"], keep="first")
+    for col,ser in zip(["Ozkaynak","Sermaye","Aktifler","Netborc","Yillik_Kar"],[oz,se,ak,nb,yk]):
+        df_final[col]=ser.apply(lambda x:"" if pd.isna(x) else str(int(x)))
 
-    # Sayısal dönüşümler
-    ozkaynak_num = pd.to_numeric(df_final["Özkaynaklar"], errors="coerce") * 1_000_000
-    sermaye_num  = pd.to_numeric(df_final["Ödenmiş Sermaye"], errors="coerce") * 1_000_000
-    aktifler_num = pd.to_numeric(df_final["Toplam Aktifler"], errors="coerce") * 1_000_000
-    netborc_num  = pd.to_numeric(df_final["Net Borç"], errors="coerce") * 1_000_000
-    netkar_num   = pd.to_numeric(df_final["Yıllık Net Kar"], errors="coerce") * 1_000_000
+    df_final["Tarih"]=pd.to_datetime(df_final["Tarih"],format="%d.%m.%Y",errors="coerce")
+    df_final=df_final.sort_values(by=["Tarih","Hisse_Kodu"],ascending=[False,True]).reset_index(drop=True)
+    df_final["Tarih"]=df_final["Tarih"].dt.strftime("%d.%m.%Y")
 
-    df_final["PD Çarpan"] = np.where(ozkaynak_num != 0, sermaye_num / ozkaynak_num, np.nan)
-    df_final["F/K Çarpan"] = np.where(netkar_num != 0, sermaye_num / netkar_num, np.nan)
-    df_final["Öz Karlılık (%)"] = np.where(ozkaynak_num != 0, (netkar_num / ozkaynak_num) * 100, np.nan)
-    df_final["Aktif Karlılık (%)"] = np.where(aktifler_num != 0, (netkar_num / aktifler_num) * 100, np.nan)
+    df_final.to_excel("pdfk_vert.xlsx",index=False,engine="openpyxl")
+    print("✅ Artifact oluşturuldu: pdfk_vert.xlsx")
 
-    for col, series in zip(
-        ["Özkaynaklar","Ödenmiş Sermaye","Toplam Aktifler","Net Borç","Yıllık Net Kar"],
-        [ozkaynak_num, sermaye_num, aktifler_num, netborc_num, netkar_num]
-    ):
-        df_final[col] = series.apply(lambda x: "" if pd.isna(x) else str(int(x)))
-
-    df_final["PD Çarpan"] = df_final["PD Çarpan"].round(5)
-    df_final["F/K Çarpan"] = df_final["F/K Çarpan"].round(5)
-    df_final["Öz Karlılık (%)"] = df_final["Öz Karlılık (%)"].round(2)
-    df_final["Aktif Karlılık (%)"] = df_final["Aktif Karlılık (%)"].round(2)
-
-    df_final["Tarih"] = pd.to_datetime(df_final["Tarih"], format="%d.%m.%Y", errors="coerce")
-    df_final = df_final.sort_values(by=["Tarih","Hisse Kodu"], ascending=[False, True]).reset_index(drop=True)
-    df_final["Tarih"] = df_final["Tarih"].dt.strftime("%d.%m.%Y")
-
-    # Artifact adı workflow ile uyumlu hale getirildi
-    artifact_path = "pdfk_vert.xlsx"
-    df_final.to_excel(artifact_path, index=False, engine="openpyxl")
-
-    print("✅ Artifact oluşturuldu:", artifact_path)
-    print("ℹ️ Bu artifact 3 gün sonunda silinecek.")
-    print("Workflow sonunda artifact linki: [artifact://pdfk_vert.xlsx]")
-
-if __name__ == "__main__":
-    main()
+if __name__=="__main__": main()
