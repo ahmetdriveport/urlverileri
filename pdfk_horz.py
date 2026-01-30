@@ -1,7 +1,13 @@
 import pandas as pd
 import numpy as np
+import os
 
-df_src = pd.read_excel("vert_pdfk.xlsx", engine="openpyxl")
+# --- Önce vert artifact var mı kontrol et ---
+if not os.path.exists("pdfk_vert.xlsx"):
+    raise FileNotFoundError("❌ pdfk_vert.xlsx bulunamadı. Önce vert script çalışmalı.")
+
+# --- Vert artifact'i oku ---
+df_src = pd.read_excel("pdfk_vert.xlsx", engine="openpyxl")
 df_src.columns = df_src.columns.str.strip()
 df_src["Tarih"] = pd.to_datetime(df_src["Tarih"].astype(str), format="%d.%m.%Y", errors="coerce")
 
