@@ -1,15 +1,13 @@
 import pandas as pd
 import numpy as np
 
-# --- Kaynak: ziraat_hamveri (artık Excel artifact'tan okunacak) ---
 df_src = pd.read_excel("vert_pdfk.xlsx", engine="openpyxl")
 df_src.columns = df_src.columns.str.strip()
 df_src["Tarih"] = pd.to_datetime(df_src["Tarih"].astype(str), format="%d.%m.%Y", errors="coerce")
 
-# --- Son değerleri biriktirmek için dict ---
 latest_values = {}
+pivot_tables = {}
 
-# --- Pivot oluşturma fonksiyonu ---
 def create_pivot(df, value_col, dtype="int"):
     pivot = pd.pivot_table(
         df,
@@ -37,7 +35,7 @@ def create_pivot(df, value_col, dtype="int"):
 
     pivot = pivot.replace([np.inf, -np.inf], pd.NA)
 
-    # --- Son satırı latest_values dict'e ekle (en güncel tarih en üstte)
+    # latest_values güncelle
     last_row = pivot.head(1)
     last_date = last_row.index[0].strftime("%d.%m.%Y")
     latest_values[value_col] = {
@@ -49,29 +47,20 @@ def create_pivot(df, value_col, dtype="int"):
     df_out.columns = ["Tarih"] + list(df_out.columns[1:])
     df_out["Tarih"] = df_out["Tarih"].dt.strftime("%d.%m.%Y")
 
-    # Artifact olarak Excel'e yaz
-    artifact_path = f"pivot_{value_col}.xlsx"
-    df_out.to_excel(artifact_path, index=False, engine="openpyxl")
-    print(f"✅ {value_col} pivot artifact oluşturuldu: {artifact_path}")
+    pivot_tables[value_col] = df_out
 
-# --- Ham tablolar ---
+# --- Pivot tablolar ---
 create_pivot(df_src, "Özkaynaklar", dtype="int")
 create_pivot(df_src, "Ödenmiş Sermaye", dtype="int")
 create_pivot(df_src, "Toplam Aktifler", dtype="int")
 create_pivot(df_src, "Net Borç", dtype="int")
 create_pivot(df_src, "Yıllık Net Kar", dtype="int")
-
-# --- Karlılık tabloları ---
 create_pivot(df_src, "Öz Karlılık (%)", dtype="float2")
 create_pivot(df_src, "Aktif Karlılık (%)", dtype="float2")
-
-# --- İşlenmiş tablolar ---
 create_pivot(df_src, "PD Çarpan", dtype="float5")
 create_pivot(df_src, "F/K Çarpan", dtype="float5")
 
-print("🔎 Tüm pivot tablolar artifact olarak üretildi.")
-
-# --- Dikey tablo oluşturma ---
+# --- Dikey tablo ---
 def safe_json_value(x):
     if x is None or pd.isna(x):
         return ""
@@ -85,7 +74,6 @@ def safe_json_value(x):
 
 def create_latest_vertical(latest_values):
     last_date = list(latest_values.values())[0]["Tarih"]
-
     rows = []
     for hisse in df_src["Hisse Kodu"].unique():
         row = [
@@ -114,11 +102,20 @@ def create_latest_vertical(latest_values):
         "Yıllık Net Kar",
         "Ödenmiş Sermaye"
     ]
+    return pd.DataFrame(rows, columns=headers)
 
-    df_vert = pd.DataFrame(rows, columns=headers)
-    artifact_path = "vertical_latest.xlsx"
-    df_vert.to_excel(artifact_path, index=False, engine="openpyxl")
-    print(f"✅ Dikey tablo artifact oluşturuldu: {artifact_path}")
+df_vert = create_latest_vertical(latest_values)
 
-# --- Çalıştır ---
-create_latest_vertical(latest_values)
+# --- Tek artifact dosyaya yaz ---
+artifact_path = "pdfk_horz.xlsx"
+with pd.ExcelWriter(artifact_path, engine="openpyxl") as writer:
+    for name, df in pivot_tables.items():
+        safe_name = (
+            name.replace("/", "-")
+                .replace("%", "pct")
+                .replace(" ", "_")
+        )
+        df.to_excel(writer, sheet_name=safe_name[:30], index=False)
+    df_vert.to_excel(writer, sheet_name="Son_Tarihli_Oranlar", index=False)
+
+print("✅ Tek artifact oluşturuldu:", artifact_path)
