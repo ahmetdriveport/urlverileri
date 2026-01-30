@@ -56,8 +56,10 @@ def safe_post(session,url,payload,headers,n=5,backoff=2.0):
 
 def load_dates_and_hisseler(path=DATES_FILE):
     df = pd.read_csv(path)
+    # Tarih sütunu sadece sıralama için
     df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
     dates = df["Tarih"].dropna().sort_values(ascending=False).tolist()
+    # 🔧 ikinci sütun -> hisse listesi
     hisseler = df.iloc[:,1].dropna().astype(str).unique().tolist()
     return dates, hisseler
 
@@ -100,6 +102,9 @@ def main():
         # 🔧 Oranları numeric + round(2)
         df["YAB_ORAN_END"] = pd.to_numeric(df["YAB_ORAN_END"], errors="coerce").round(2)
 
+        # 🔧 Hisse kodlarını dates.csv’deki listeye göre filtrele
+        df = df[df["HISSE_KODU"].isin(hisseler)]
+
         # 🔧 Dikey tabloyu CSV’ye yaz
         df.to_csv(
             OUTPUT_FILE,
@@ -107,7 +112,7 @@ def main():
             encoding="utf-8-sig",
             index=False
         )
-        logger.info(f"{df.shape} satır {OUTPUT_FILE} yazıldı (dikey tablo)")
+        logger.info(f"{df.shape} satır {OUTPUT_FILE} yazıldı (filtrelenmiş dikey tablo)")
     else:
         logger.warning("Veri yok")
 
