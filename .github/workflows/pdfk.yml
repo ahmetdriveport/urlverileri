@@ -1,4 +1,4 @@
-name: pdfk-vert
+name: pdfk-all
 
 on:
   schedule:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  run-script:
+  run-scripts:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -21,14 +21,24 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install requests pandas numpy openpyxl pytz   # ✅ eksik paket eklendi
+          pip install requests pandas numpy openpyxl pytz
 
-      - name: Run script
-        run: python pdfk_vert.py   # ✅ doğru dosya adı
+      - name: Run vert script
+        run: python pdfk_vert.py
 
-      - name: Upload Excel artifact
+      - name: Run hor script
+        run: python pdfk_hor.py
+
+      - name: Upload vert artifact
         uses: actions/upload-artifact@v4
         with:
           name: vert-pdfk-excel
-          path: vert_pdfk.xlsx
+          path: pdfk_vert.xlsx
+          retention-days: 3
+
+      - name: Upload hor artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hor-pdfk-excel
+          path: pdfk_hor.xlsx
           retention-days: 3
