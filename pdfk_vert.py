@@ -104,13 +104,13 @@ def main():
     # Tarih tekrar string formatına çevrilir
     df_final["Tarih"] = df_final["Tarih"].dt.strftime("%d.%m.%Y")
 
-    # Artifact yazma
-    artifact_path = "vert_pdfk.csv"
-    df_final.to_csv(artifact_path, index=False)
+    # Artifact yazma (Excel)
+    artifact_path = "vert_pdfk.xlsx"
+    df_final.to_excel(artifact_path, index=False, engine="openpyxl")
 
     print("Artifact oluşturuldu:", artifact_path)
     print("Bu artifact 3 gün sonunda silinecek.")
-    print("Workflow sonunda artifact linki: [artifact://vert_pdfk.csv]")
+    print("Workflow sonunda artifact linki: [artifact://vert_pdfk.xlsx]")
 
 if __name__ == "__main__":
     main()
