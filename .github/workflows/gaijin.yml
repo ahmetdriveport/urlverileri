@@ -26,7 +26,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install requests pandas certifi selenium webdriver-manager
+          pip install requests pandas certifi selenium webdriver-manager openpyxl
 
       - name: Run gaijin
         run: python gaijin.py
@@ -38,4 +38,14 @@ jobs:
           path: |
             gaijin.csv
             pivot_gaijin.csv
+          retention-days: 3
+
+      - name: Check pivot and convert to Excel
+        run: python check_pivot.py
+
+      - name: Upload Excel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pivot-excel
+          path: pivot_gaijin.xlsx
           retention-days: 3
