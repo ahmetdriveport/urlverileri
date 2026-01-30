@@ -4,6 +4,7 @@ import numpy as np
 from io import BytesIO
 from datetime import datetime
 import pytz
+import os
 
 BASE_URL = "https://img.euromsg.net/54165B4951BD4D81B4668B9B9A6D7E54/files"
 
@@ -90,8 +91,7 @@ def main():
             continue
 
     if not all_dfs:
-        print("Hiç veri bulunamadı.")
-        return
+        raise ValueError("❌ Hiç veri bulunamadı, pdfk_vert.xlsx oluşturulamadı.")
 
     df_final = pd.concat(all_dfs, ignore_index=True)
 
@@ -121,12 +121,13 @@ def main():
     df_final = df_final.sort_values(by=["Tarih","Hisse Kodu"], ascending=[False, True]).reset_index(drop=True)
     df_final["Tarih"] = df_final["Tarih"].dt.strftime("%d.%m.%Y")
 
-    artifact_path = "vert_pdfk.xlsx"
+    # Artifact adı workflow ile uyumlu hale getirildi
+    artifact_path = "pdfk_vert.xlsx"
     df_final.to_excel(artifact_path, index=False, engine="openpyxl")
 
-    print("Artifact oluşturuldu:", artifact_path)
-    print("Bu artifact 3 gün sonunda silinecek.")
-    print("Workflow sonunda artifact linki: [artifact://vert_pdfk.xlsx]")
+    print("✅ Artifact oluşturuldu:", artifact_path)
+    print("ℹ️ Bu artifact 3 gün sonunda silinecek.")
+    print("Workflow sonunda artifact linki: [artifact://pdfk_vert.xlsx]")
 
 if __name__ == "__main__":
     main()
