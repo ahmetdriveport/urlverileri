@@ -26,8 +26,8 @@ jobs:
       - name: Run vert script
         run: python pdfk_vert.py
 
-      - name: Run hor script
-        run: python pdfk_hor.py
+      - name: Run horz script
+        run: python pdfk_horz.py
 
       - name: Upload vert artifact
         uses: actions/upload-artifact@v4
@@ -36,9 +36,9 @@ jobs:
           path: pdfk_vert.xlsx
           retention-days: 3
 
-      - name: Upload hor artifact
+      - name: Upload horz artifact
         uses: actions/upload-artifact@v4
         with:
-          name: hor-pdfk-excel
-          path: pdfk_hor.xlsx
+          name: horz-pdfk-excel
+          path: pdfk_horz.xlsx
           retention-days: 3
