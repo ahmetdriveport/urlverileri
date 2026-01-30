@@ -20,10 +20,10 @@ jobs:
           pip install --upgrade pip
           pip install pandas openpyxl
 
-      - name: Download pivot artifact
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: pivot-output   # pivot artifact adı, gaijin workflow’unda böyle yüklemiştik
+          name: gaijin-output   # pivot-output yerine gaijin-output
           path: .
 
       - name: Run check script
