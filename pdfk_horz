@@ -1,0 +1,75 @@
+import pandas as pd
+import numpy as np
+import zipfile
+
+# --- Kaynak artifact: vert_pdfk.csv ---
+df_src = pd.read_csv("vert_pdfk.csv")
+df_src["Tarih"] = pd.to_datetime(df_src["Tarih"].astype(str), format="%d.%m.%Y", errors="coerce")
+
+# --- Hisse kodları: dates.csv 2. sütun ---
+df_dates = pd.read_csv("data/dates.csv", header=None)
+codes = [str(c).strip() for c in df_dates.iloc[:,1] if str(c).strip()]
+
+# --- Kronolojik sıralama: yeni → eski ---
+master_index = df_src["Tarih"].dropna().sort_values(ascending=False).unique()
+
+latest_values = {}
+
+def create_pivot(df, value_col, dtype="int"):
+    pivot = pd.pivot_table(
+        df[df["Hisse Kodu"].isin(codes)],
+        index=["Tarih"],
+        columns=["Hisse Kodu"],
+        values=value_col,
+        aggfunc="first"
+    )
+    pivot.index = pd.to_datetime(pivot.index.astype(str), errors="coerce")
+    pivot.index.name = "Tarih"
+    pivot = pivot.sort_index(ascending=False).reindex(master_index).ffill()
+
+    def clean_numeric(x):
+        if (x is not None) and (not pd.isna(x)) and str(x) not in ["", "None"]:
+            return float(str(x).replace(",", "."))
+        return np.nan
+    pivot = pivot.apply(lambda col: col.map(clean_numeric))
+
+    if dtype == "int":
+        pivot = pivot.round().astype("Int64")
+    elif dtype == "float2":
+        pivot = pivot.round(2).astype(float)
+    elif dtype == "float5":
+        pivot = pivot.round(5).astype(float)
+
+    pivot = pivot.replace([np.inf, -np.inf], pd.NA)
+
+    df_out = pivot.reset_index()
+    df_out.columns = ["Tarih"] + list(df_out.columns[1:])
+    df_out["Tarih"] = df_out["Tarih"].dt.strftime("%d.%m.%Y")
+
+    return df_out
+
+# --- Tabloları üret ---
+tables = {
+    "ozkaynaklar_yatay.csv": create_pivot(df_src, "Özkaynaklar", dtype="int"),
+    "sermaye_yatay.csv": create_pivot(df_src, "Ödenmiş Sermaye", dtype="int"),
+    "aktifler_yatay.csv": create_pivot(df_src, "Toplam Aktifler", dtype="int"),
+    "netborc_yatay.csv": create_pivot(df_src, "Net Borç", dtype="int"),
+    "netkar_yatay.csv": create_pivot(df_src, "Yıllık Net Kar", dtype="int"),
+    "ozkar_yatay.csv": create_pivot(df_src, "Öz Karlılık (%)", dtype="float2"),
+    "aktkar_yatay.csv": create_pivot(df_src, "Aktif Karlılık (%)", dtype="float2"),
+    "piyasa_degeri_yatay.csv": create_pivot(df_src, "Ödenmiş Sermaye", dtype="int"),  # kapanış yok
+    "pd_dd_yatay.csv": create_pivot(df_src, "PD Çarpan", dtype="float2"),
+    "fk_yatay.csv": create_pivot(df_src, "F/K Çarpan", dtype="float2"),
+    "firma_degeri_yatay.csv": create_pivot(df_src, "Net Borç", dtype="int")
+}
+
+# --- ZIP artifact oluştur ---
+zip_path = "yatay_tablolar.zip"
+with zipfile.ZipFile(zip_path, "w") as zf:
+    for filename, df_out in tables.items():
+        df_out.to_csv(filename, index=False)
+        zf.write(filename)
+
+print("✅ Tüm yatay tablolar tek artifact içinde paketlendi:", zip_path)
+print("Bu artifact 3 gün sonunda silinecek.")
+print("Workflow sonunda artifact linki: [artifact://yatay_tablolar.zip]")
