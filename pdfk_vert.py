@@ -15,7 +15,7 @@ def parse_excel(url, tarih, hedef_kodlar):
 
     veri_listesi = []
     for j in range(len(df_raw)):
-        kod = str(df_raw.iat[j, 1]).strip()
+        kod = str(df_raw.iat[j, 1]).strip().upper()
         if not kod or kod.lower() == "nan":
             continue
         if kod not in hedef_kodlar:
@@ -74,7 +74,8 @@ def secili_tarihleri_bul_csv(csv_tarihleri, hedef_gun_sayisi=10):
 def main():
     df_dates = pd.read_csv("data/dates.csv", encoding="utf-8")
     excel_tarihleri = df_dates.iloc[:,0].dropna().astype(str).str.strip().tolist()
-    codes = df_dates.iloc[:,1].dropna().astype(str).str.strip().tolist()
+    codes = df_dates.iloc[:,1].dropna().astype(str).str.strip().str.upper().tolist()
+    codes_set = set(codes)
 
     secilen_tarihler = secili_tarihleri_bul_csv(excel_tarihleri, hedef_gun_sayisi=10)
 
@@ -83,7 +84,7 @@ def main():
         d_fmt = datetime.strptime(d_orig, "%d.%m.%Y").strftime("%Y_%m_%d")
         url = f"{BASE_URL}/ZRY Göstergeler-{d_fmt}.xlsx"
         try:
-            df_day = parse_excel(url, d_orig, set(codes))
+            df_day = parse_excel(url, d_orig, codes_set)
             if not df_day.empty:
                 all_dfs.append(df_day)
         except Exception as e:
@@ -95,6 +96,14 @@ def main():
 
     df_final = pd.concat(all_dfs, ignore_index=True)
 
+    # Normalize hisse kodları ve sadece referans listede olanları tut
+    df_final["Hisse Kodu"] = df_final["Hisse Kodu"].str.strip().str.upper()
+    df_final = df_final[df_final["Hisse Kodu"].isin(codes_set)]
+
+    # Aynı Tarih + Hisse Kodu kombinasyonunda tekrarları kaldır
+    df_final = df_final.drop_duplicates(subset=["Tarih", "Hisse Kodu"], keep="first")
+
+    # Sayısal dönüşümler
     ozkaynak_num = pd.to_numeric(df_final["Özkaynaklar"], errors="coerce") * 1_000_000
     sermaye_num  = pd.to_numeric(df_final["Ödenmiş Sermaye"], errors="coerce") * 1_000_000
     aktifler_num = pd.to_numeric(df_final["Toplam Aktifler"], errors="coerce") * 1_000_000
