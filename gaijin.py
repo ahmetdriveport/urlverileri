@@ -106,8 +106,9 @@ def main():
         # 🔧 Filtreleme
         df = df[df["HISSE_KODU"].isin(hisseler)]
 
-        # 🔧 Pivotlama (pivot_table yerine pivot)
+        # 🔧 Pivotlama (dates.csv’deki listeye göre sabitle)
         pivot_df = df.pivot(index="Tarih", columns="HISSE_KODU", values="YAB_ORAN_END")
+        pivot_df = pivot_df.reindex(columns=hisseler)   # kritik ekleme
         pivot_df = pivot_df.sort_index(ascending=False).sort_index(axis=1)
         pivot_df.index = pivot_df.index.strftime("%d.%m.%Y")
 
