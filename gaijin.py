@@ -12,8 +12,7 @@ USER_AGENT = "Mozilla/5.0"
 AJAX_URL = "https://www.isyatirim.com.tr/_layouts/15/IsYatirim.Website/StockInfo/CompanyInfoAjax.aspx/GetYabanciOranlarXHR"
 BASE_PAGE = "https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/yabanci-oranlari.aspx"
 DATES_FILE = os.path.join(os.path.dirname(__file__),"data","dates.csv")
-OUTPUT_FILE = "gaijin.csv"
-PIVOT_FILE = "pivot_gaijin.csv"
+PIVOT_FILE = "pivot_gaijin.xlsx"   # ✅ sadece Excel artifact
 MAX_ROWS = 5
 
 logging.basicConfig(level=logging.INFO,format="%(asctime)s %(levelname)s %(message)s")
@@ -59,7 +58,6 @@ def load_dates_and_hisseler(path=DATES_FILE):
     df = pd.read_csv(path)
     df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
     dates = df["Tarih"].dropna().sort_values(ascending=False).tolist()
-    # ikinci sütun -> hisse listesi normalize edilmiş
     hisseler = (
         df.iloc[:,1]
         .dropna()
@@ -115,17 +113,14 @@ def main():
         # filtrele
         df = df[df["HISSE_KODU"].isin(hisseler)]
 
-        # dikey tabloyu yaz
-        df.to_csv(OUTPUT_FILE, sep=",", encoding="utf-8-sig", index=False)
-        logger.info(f"{df.shape} satır {OUTPUT_FILE} yazıldı (filtrelenmiş dikey tablo)")
-
         # pivot tabloyu oluştur
         pivot_df = df.pivot(index="Tarih", columns="HISSE_KODU", values="YAB_ORAN_END")
         pivot_df = pivot_df.reindex(columns=hisseler)  # kesinlikle dates.csv’den gelen liste
         pivot_df = pivot_df.sort_index(ascending=False).sort_index(axis=1)
         pivot_df.index = pivot_df.index.strftime("%d.%m.%Y")
 
-        pivot_df.to_csv(PIVOT_FILE, sep=",", encoding="utf-8-sig")
+        # ✅ sadece Excel artifact yaz
+        pivot_df.to_excel(PIVOT_FILE, engine="openpyxl")
         logger.info(f"{pivot_df.shape} boyutlu pivot {PIVOT_FILE} yazıldı")
     else:
         logger.warning("Veri yok")
