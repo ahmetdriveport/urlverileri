@@ -2,6 +2,11 @@ import pandas as pd
 import numpy as np
 import os
 
+# dates.csv'den referans hisse kodlarını al
+df_dates = pd.read_csv("data/dates.csv", encoding="utf-8")
+codes = df_dates.iloc[:,1].dropna().astype(str).str.strip().str.upper().tolist()
+codes_set = set(codes)
+
 # --- Önce vert artifact var mı kontrol et ---
 if not os.path.exists("pdfk_vert.xlsx"):
     raise FileNotFoundError("❌ pdfk_vert.xlsx bulunamadı. Önce vert script çalışmalı.")
@@ -9,12 +14,13 @@ if not os.path.exists("pdfk_vert.xlsx"):
 # --- Vert artifact'i oku ---
 df_src = pd.read_excel("pdfk_vert.xlsx", engine="openpyxl")
 df_src.columns = df_src.columns.str.strip()
+df_src["Hisse Kodu"] = df_src["Hisse Kodu"].str.strip().str.upper()
 df_src["Tarih"] = pd.to_datetime(df_src["Tarih"].astype(str), format="%d.%m.%Y", errors="coerce")
 
 latest_values = {}
 pivot_tables = {}
 
-def create_pivot(df, value_col, dtype="int"):
+def create_pivot(df, value_col, dtype="int", all_codes=None):
     pivot = pd.pivot_table(
         df,
         index=["Tarih"],
@@ -24,7 +30,16 @@ def create_pivot(df, value_col, dtype="int"):
     )
     pivot.index = pd.to_datetime(pivot.index.astype(str), errors="coerce")
     pivot.index.name = "Tarih"
-    pivot = pivot.sort_index(ascending=False).ffill()
+    pivot = pivot.sort_index(ascending=False)
+
+    # Eksik sütunları ekle (dates.csv’den gelen tüm kodlar)
+    if all_codes is not None:
+        for code in all_codes:
+            if code not in pivot.columns:
+                pivot[code] = np.nan
+
+    # ffill mantığı (Son Tarihli Oranlar hariç)
+    pivot = pivot.ffill()
 
     def clean_numeric(x):
         if (x is not None) and (not pd.isna(x)) and str(x) not in ["", "None"]:
@@ -56,17 +71,17 @@ def create_pivot(df, value_col, dtype="int"):
     pivot_tables[value_col] = df_out
 
 # --- Pivot tablolar ---
-create_pivot(df_src, "Özkaynaklar", dtype="int")
-create_pivot(df_src, "Ödenmiş Sermaye", dtype="int")
-create_pivot(df_src, "Toplam Aktifler", dtype="int")
-create_pivot(df_src, "Net Borç", dtype="int")
-create_pivot(df_src, "Yıllık Net Kar", dtype="int")
-create_pivot(df_src, "Öz Karlılık (%)", dtype="float2")
-create_pivot(df_src, "Aktif Karlılık (%)", dtype="float2")
-create_pivot(df_src, "PD Çarpan", dtype="float5")
-create_pivot(df_src, "F/K Çarpan", dtype="float5")
+create_pivot(df_src, "Özkaynaklar", dtype="int", all_codes=codes_set)
+create_pivot(df_src, "Ödenmiş Sermaye", dtype="int", all_codes=codes_set)
+create_pivot(df_src, "Toplam Aktifler", dtype="int", all_codes=codes_set)
+create_pivot(df_src, "Net Borç", dtype="int", all_codes=codes_set)
+create_pivot(df_src, "Yıllık Net Kar", dtype="int", all_codes=codes_set)
+create_pivot(df_src, "Öz Karlılık (%)", dtype="float2", all_codes=codes_set)
+create_pivot(df_src, "Aktif Karlılık (%)", dtype="float2", all_codes=codes_set)
+create_pivot(df_src, "PD Çarpan", dtype="float5", all_codes=codes_set)
+create_pivot(df_src, "F/K Çarpan", dtype="float5", all_codes=codes_set)
 
-# --- Dikey tablo ---
+# --- Dikey tablo (Son Tarihli Oranlar) ---
 def safe_json_value(x):
     if x is None or pd.isna(x):
         return ""
@@ -78,10 +93,10 @@ def safe_json_value(x):
         return int(x)
     return str(x)
 
-def create_latest_vertical(latest_values):
+def create_latest_vertical(latest_values, all_codes):
     last_date = list(latest_values.values())[0]["Tarih"]
     rows = []
-    for hisse in df_src["Hisse Kodu"].unique():
+    for hisse in all_codes:
         row = [
             hisse,
             safe_json_value(latest_values.get("PD Çarpan", {}).get("Veriler", {}).get(hisse, "")),
@@ -110,7 +125,7 @@ def create_latest_vertical(latest_values):
     ]
     return pd.DataFrame(rows, columns=headers)
 
-df_vert = create_latest_vertical(latest_values)
+df_vert = create_latest_vertical(latest_values, codes_set)
 
 # --- Tek artifact dosyaya yaz ---
 artifact_path = "pdfk_horz.xlsx"
