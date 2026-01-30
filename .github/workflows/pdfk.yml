@@ -1,10 +1,13 @@
-name: check-pivot
+name: pdfk-vert
 
 on:
+  schedule:
+    # Türkiye saatiyle 13:00 → UTC 10:00
+    - cron: "0 10 * * *"
   workflow_dispatch:
 
 jobs:
-  check-pivot-job:
+  run-script:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -18,20 +21,14 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install pandas openpyxl
+          pip install requests pandas numpy openpyxl
 
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: gaijin-output   # pivot-output yerine gaijin-output
-          path: .
-
-      - name: Run check script
-        run: python check_pivot.py
+      - name: Run script
+        run: python pdfk_vert.py   # ✅ doğru dosya adı
 
       - name: Upload Excel artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pivot-excel
-          path: pivot_gaijin.xlsx
-          retention-days: 3
+          name: vert-pdfk-excel
+          path: vert_pdfk.xlsx
+          retention-days: 3   # senin istediğin süre
