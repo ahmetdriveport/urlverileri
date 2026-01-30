@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from io import BytesIO
 from datetime import datetime
-from tarih_ayar import secili_tarihleri_bul
+import pytz
 
 BASE_URL = "https://img.euromsg.net/54165B4951BD4D81B4668B9B9A6D7E54/files"
 
@@ -41,14 +41,44 @@ def parse_excel(url, tarih, hedef_kodlar):
 
     return pd.DataFrame(veri_listesi)
 
+# Yeni tarih seçici (18:25 bağımlılığı olmadan)
+def bul_ilk_gun_csv(csv_tarihleri):
+    tz = pytz.timezone("Europe/Istanbul")
+    today = datetime.now(tz).date()
+
+    temiz_tarihler = [str(x).strip() for x in csv_tarihleri if str(x).strip()]
+    tarihler_dt = sorted(pd.to_datetime(temiz_tarihler, dayfirst=True, errors="coerce"))
+    liste_tarihleri = [t.date() for t in tarihler_dt]
+
+    if today in liste_tarihleri:
+        return today
+    else:
+        onceki_gunler = [d for d in liste_tarihleri if d < today]
+        return max(onceki_gunler) if onceki_gunler else None
+
+def sirali_gunler(csv_tarihleri, ilk_gun, hedef_gun_sayisi):
+    tarih_serisi = pd.to_datetime(pd.Series(csv_tarihleri), dayfirst=True, errors="coerce")
+    try:
+        baslangic_index = tarih_serisi[tarih_serisi.dt.date == ilk_gun].index[0]
+    except IndexError:
+        return []
+    return tarih_serisi.iloc[baslangic_index:baslangic_index + hedef_gun_sayisi].dt.date.tolist()
+
+def secili_tarihleri_bul_csv(csv_tarihleri, hedef_gun_sayisi=5):
+    ilk_gun = bul_ilk_gun_csv(csv_tarihleri)
+    if not ilk_gun:
+        return []
+    gunler = sirali_gunler(csv_tarihleri, ilk_gun, hedef_gun_sayisi)
+    return [g.strftime("%d.%m.%Y") for g in gunler]
+
 def main():
     # dates.csv içinden tarihleri ve hisse kodlarını oku
     df_dates = pd.read_csv("data/dates.csv", header=None)
     excel_tarihleri = [str(d).strip() for d in df_dates.iloc[:,0] if str(d).strip()]
-    codes = [str(c).strip() for c in df_dates.iloc[:,2] if str(c).strip()]
+    codes = [str(c).strip() for c in df_dates.iloc[:,1] if str(c).strip()]   # ✅ 2. sütun
 
     # sadece 5 günlük seri seç
-    secilen_tarihler = secili_tarihleri_bul(excel_tarihleri, hedef_gun_sayisi=5)
+    secilen_tarihler = secili_tarihleri_bul_csv(excel_tarihleri, hedef_gun_sayisi=5)
 
     all_dfs = []
     for d_orig in secilen_tarihler:
