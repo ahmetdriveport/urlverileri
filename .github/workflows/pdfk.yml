@@ -9,6 +9,8 @@ on:
 jobs:
   run-scripts:
     runs-on: ubuntu-latest
+    env:
+      PDFK: ${{ secrets.PDFK }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
