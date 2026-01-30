@@ -41,15 +41,12 @@ def parse_excel(url, tarih, hedef_kodlar):
 
     return pd.DataFrame(veri_listesi)
 
-# Yeni tarih seçici (bugün varsa bugünü, yoksa en yakın önceki günü)
 def bul_ilk_gun_csv(csv_tarihleri):
     tz = pytz.timezone("Europe/Istanbul")
     today = datetime.now(tz).date()
 
     temiz_tarihler = [str(x).strip() for x in csv_tarihleri if str(x).strip()]
     tarihler_dt = pd.to_datetime(temiz_tarihler, format="%d.%m.%Y", dayfirst=True, errors="coerce")
-
-    # NaT değerlerini filtrele
     liste_tarihleri = [t.date() for t in tarihler_dt if pd.notna(t)]
 
     if today in liste_tarihleri:
@@ -59,15 +56,14 @@ def bul_ilk_gun_csv(csv_tarihleri):
         return max(onceki_gunler) if onceki_gunler else None
 
 def sirali_gunler(csv_tarihleri, ilk_gun, hedef_gun_sayisi):
-    tarih_serisi = pd.to_datetime(pd.Series(csv_tarihleri), format="%d.%m.%Y", dayfirst=True, errors="coerce")
-    tarih_serisi = tarih_serisi.dropna()
+    tarih_serisi = pd.to_datetime(pd.Series(csv_tarihleri), format="%d.%m.%Y", dayfirst=True, errors="coerce").dropna()
     try:
         baslangic_index = tarih_serisi[tarih_serisi.dt.date == ilk_gun].index[0]
     except IndexError:
         return []
     return tarih_serisi.iloc[baslangic_index:baslangic_index + hedef_gun_sayisi].dt.date.tolist()
 
-def secili_tarihleri_bul_csv(csv_tarihleri, hedef_gun_sayisi=5):
+def secili_tarihleri_bul_csv(csv_tarihleri, hedef_gun_sayisi=10):
     ilk_gun = bul_ilk_gun_csv(csv_tarihleri)
     if not ilk_gun:
         return []
@@ -75,13 +71,11 @@ def secili_tarihleri_bul_csv(csv_tarihleri, hedef_gun_sayisi=5):
     return [g.strftime("%d.%m.%Y") for g in gunler]
 
 def main():
-    # dates.csv içinden tarihleri ve hisse kodlarını oku
     df_dates = pd.read_csv("data/dates.csv", encoding="utf-8")
     excel_tarihleri = df_dates.iloc[:,0].dropna().astype(str).str.strip().tolist()
-    codes = df_dates.iloc[:,1].dropna().astype(str).str.strip().tolist()   # ✅ 2. sütun
+    codes = df_dates.iloc[:,1].dropna().astype(str).str.strip().tolist()
 
-    # sadece 5 günlük seri seç
-    secilen_tarihler = secili_tarihleri_bul_csv(excel_tarihleri, hedef_gun_sayisi=5)
+    secilen_tarihler = secili_tarihleri_bul_csv(excel_tarihleri, hedef_gun_sayisi=10)
 
     all_dfs = []
     for d_orig in secilen_tarihler:
@@ -101,43 +95,32 @@ def main():
 
     df_final = pd.concat(all_dfs, ignore_index=True)
 
-    # Numerik dönüşüm + milyon çarpanı
     ozkaynak_num = pd.to_numeric(df_final["Özkaynaklar"], errors="coerce") * 1_000_000
     sermaye_num  = pd.to_numeric(df_final["Ödenmiş Sermaye"], errors="coerce") * 1_000_000
     aktifler_num = pd.to_numeric(df_final["Toplam Aktifler"], errors="coerce") * 1_000_000
     netborc_num  = pd.to_numeric(df_final["Net Borç"], errors="coerce") * 1_000_000
     netkar_num   = pd.to_numeric(df_final["Yıllık Net Kar"], errors="coerce") * 1_000_000
 
-    # Yeni hesaplama sütunları
     df_final["PD Çarpan"] = np.where(ozkaynak_num != 0, sermaye_num / ozkaynak_num, np.nan)
     df_final["F/K Çarpan"] = np.where(netkar_num != 0, sermaye_num / netkar_num, np.nan)
     df_final["Öz Karlılık (%)"] = np.where(ozkaynak_num != 0, (netkar_num / ozkaynak_num) * 100, np.nan)
     df_final["Aktif Karlılık (%)"] = np.where(aktifler_num != 0, (netkar_num / aktifler_num) * 100, np.nan)
 
-    # Ham kolonlar → tam sayı string
     for col, series in zip(
         ["Özkaynaklar","Ödenmiş Sermaye","Toplam Aktifler","Net Borç","Yıllık Net Kar"],
         [ozkaynak_num, sermaye_num, aktifler_num, netborc_num, netkar_num]
     ):
         df_final[col] = series.apply(lambda x: "" if pd.isna(x) else str(int(x)))
 
-    # Hesaplama kolonları → 5 basamaklı ondalık string
-    for col in ["PD Çarpan","F/K Çarpan","Öz Karlılık (%)","Aktif Karlılık (%)"]:
-        df_final[col] = df_final[col].apply(lambda x: "" if pd.isna(x) else str(round(x,5)))
+    df_final["PD Çarpan"] = df_final["PD Çarpan"].round(5)
+    df_final["F/K Çarpan"] = df_final["F/K Çarpan"].round(5)
+    df_final["Öz Karlılık (%)"] = df_final["Öz Karlılık (%)"].round(2)
+    df_final["Aktif Karlılık (%)"] = df_final["Aktif Karlılık (%)"].round(2)
 
-    # Tarih kolonunu datetime'a çevir
     df_final["Tarih"] = pd.to_datetime(df_final["Tarih"], format="%d.%m.%Y", errors="coerce")
-
-    # Sıralama
-    df_final = df_final.sort_values(
-        by=["Tarih","Hisse Kodu"],
-        ascending=[False, True]
-    ).reset_index(drop=True)
-
-    # Tarih tekrar string formatına çevrilir
+    df_final = df_final.sort_values(by=["Tarih","Hisse Kodu"], ascending=[False, True]).reset_index(drop=True)
     df_final["Tarih"] = df_final["Tarih"].dt.strftime("%d.%m.%Y")
 
-    # Artifact yazma (Excel)
     artifact_path = "vert_pdfk.xlsx"
     df_final.to_excel(artifact_path, index=False, engine="openpyxl")
 
