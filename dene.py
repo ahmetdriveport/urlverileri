@@ -2,7 +2,7 @@
 import pandas as pd
 
 def main():
-    # Pivot CSV dosyasını oku
+    # pivot_gaijin.csv dosyasını oku
     df = pd.read_csv("pivot_gaijin.csv")
 
     # Kontrol çıktısı
