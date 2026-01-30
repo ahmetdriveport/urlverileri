@@ -31,9 +31,11 @@ jobs:
       - name: Run gaijin
         run: python gaijin.py
 
-      - name: Upload CSV artifact
+      - name: Upload CSV artifacts
         uses: actions/upload-artifact@v4
         with:
           name: gaijin-output
-          path: gaijin.csv
+          path: |
+            gaijin.csv
+            pivot_gaijin.csv
           retention-days: 3
