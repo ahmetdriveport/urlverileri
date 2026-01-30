@@ -41,7 +41,7 @@ jobs:
           retention-days: 3
 
       - name: Check pivot and convert to Excel
-        run: python dene.py
+        run: python dene.py   # ✅ senin kontrol scriptin
 
       - name: Upload Excel artifact
         uses: actions/upload-artifact@v4
