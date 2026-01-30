@@ -3,7 +3,7 @@ from io import BytesIO
 from datetime import datetime
 import pytz, os
 
-BASE_URL="https://img.euromsg.net/54165B4951BD4D81B4668B9B9A6D7E54/files"
+BASE_URL = os.environ.get("PDFK")
 
 def parse_excel(url,tarih,hedef):
     r=requests.get(url,timeout=15); r.raise_for_status()
@@ -17,7 +17,7 @@ def parse_excel(url,tarih,hedef):
     return pd.DataFrame(rows)
 
 def bul_ilk_gun(lst):
-    tz=pytz.timezone("Europe/Istanbul"); today=datetime.now(tz).date()
+    today=datetime.now(pytz.timezone("Europe/Istanbul")).date()
     tarihler=pd.to_datetime([x.strip() for x in lst if str(x).strip()],
                             format="%d.%m.%Y",dayfirst=True,errors="coerce")
     tarihler=[d.date() for d in tarihler if not pd.isna(d)]
