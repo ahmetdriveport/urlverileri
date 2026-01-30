@@ -41,14 +41,16 @@ def parse_excel(url, tarih, hedef_kodlar):
 
     return pd.DataFrame(veri_listesi)
 
-# Yeni tarih seçici (18:25 bağımlılığı olmadan)
+# Yeni tarih seçici (bugün varsa bugünü, yoksa en yakın önceki günü)
 def bul_ilk_gun_csv(csv_tarihleri):
     tz = pytz.timezone("Europe/Istanbul")
     today = datetime.now(tz).date()
 
     temiz_tarihler = [str(x).strip() for x in csv_tarihleri if str(x).strip()]
-    tarihler_dt = sorted(pd.to_datetime(temiz_tarihler, dayfirst=True, errors="coerce"))
-    liste_tarihleri = [t.date() for t in tarihler_dt]
+    tarihler_dt = pd.to_datetime(temiz_tarihler, format="%d.%m.%Y", dayfirst=True, errors="coerce")
+
+    # NaT değerlerini filtrele
+    liste_tarihleri = [t.date() for t in tarihler_dt if pd.notna(t)]
 
     if today in liste_tarihleri:
         return today
@@ -57,7 +59,8 @@ def bul_ilk_gun_csv(csv_tarihleri):
         return max(onceki_gunler) if onceki_gunler else None
 
 def sirali_gunler(csv_tarihleri, ilk_gun, hedef_gun_sayisi):
-    tarih_serisi = pd.to_datetime(pd.Series(csv_tarihleri), dayfirst=True, errors="coerce")
+    tarih_serisi = pd.to_datetime(pd.Series(csv_tarihleri), format="%d.%m.%Y", dayfirst=True, errors="coerce")
+    tarih_serisi = tarih_serisi.dropna()
     try:
         baslangic_index = tarih_serisi[tarih_serisi.dt.date == ilk_gun].index[0]
     except IndexError:
@@ -73,9 +76,9 @@ def secili_tarihleri_bul_csv(csv_tarihleri, hedef_gun_sayisi=5):
 
 def main():
     # dates.csv içinden tarihleri ve hisse kodlarını oku
-    df_dates = pd.read_csv("data/dates.csv", header=None)
-    excel_tarihleri = [str(d).strip() for d in df_dates.iloc[:,0] if str(d).strip()]
-    codes = [str(c).strip() for c in df_dates.iloc[:,1] if str(c).strip()]   # ✅ 2. sütun
+    df_dates = pd.read_csv("data/dates.csv", encoding="utf-8")
+    excel_tarihleri = df_dates.iloc[:,0].dropna().astype(str).str.strip().tolist()
+    codes = df_dates.iloc[:,1].dropna().astype(str).str.strip().tolist()   # ✅ 2. sütun
 
     # sadece 5 günlük seri seç
     secilen_tarihler = secili_tarihleri_bul_csv(excel_tarihleri, hedef_gun_sayisi=5)
