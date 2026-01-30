@@ -14,7 +14,6 @@ def main():
     # Excel'e yaz
     output_file = "pivot_gaijin.xlsx"
     df.to_excel(output_file, index=False, engine="openpyxl")
-
     print(f"\n✅ Excel dosyası '{output_file}' olarak kaydedildi.")
 
 if __name__ == "__main__":
