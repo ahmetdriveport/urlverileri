@@ -31,18 +31,6 @@ jobs:
       - name: Run gaijin
         run: python gaijin.py
 
-      - name: Upload CSV artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: gaijin-output
-          path: |
-            gaijin.csv
-            pivot_gaijin.csv
-          retention-days: 3
-
-      - name: Check pivot and convert to Excel
-        run: python dene.py   # ✅ senin kontrol scriptin
-
       - name: Upload Excel artifact
         uses: actions/upload-artifact@v4
         with:
