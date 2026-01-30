@@ -58,7 +58,7 @@ def load_dates_and_hisseler(path=DATES_FILE):
     df = pd.read_csv(path)
     df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
     dates = df["Tarih"].dropna().sort_values(ascending=False).tolist()
-    hisseler = df.iloc[:,1].dropna().astype(str).str.strip().str.upper().unique().tolist()
+    hisseler = df.iloc[:,1].dropna().astype(str).unique().tolist()
     return dates, hisseler
 
 def fetch_for_target_range(session,start,end,endeks="09"):
@@ -97,27 +97,17 @@ def main():
         # 🔧 Tekrarları önle
         df = df.drop_duplicates(subset=["Tarih", "HISSE_KODU", "YAB_ORAN_END"])
 
-        # 🔧 Normalize et
-        df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
-        df = df.dropna(subset=["Tarih"])
-        df["HISSE_KODU"] = df["HISSE_KODU"].astype(str).str.strip().str.upper()
+        # 🔧 Oranları numeric + round(2)
         df["YAB_ORAN_END"] = pd.to_numeric(df["YAB_ORAN_END"], errors="coerce").round(2)
 
-        # 🔧 Filtreleme
-        df = df[df["HISSE_KODU"].isin(hisseler)]
-
-        # 🔧 Pivotlama (dates.csv’deki listeye göre sabitle)
-        pivot_df = df.pivot(index="Tarih", columns="HISSE_KODU", values="YAB_ORAN_END")
-        pivot_df = pivot_df.reindex(columns=hisseler)   # kritik ekleme
-        pivot_df = pivot_df.sort_index(ascending=False).sort_index(axis=1)
-        pivot_df.index = pivot_df.index.strftime("%d.%m.%Y")
-
-        pivot_df.to_csv(
+        # 🔧 Dikey tabloyu CSV’ye yaz
+        df.to_csv(
             OUTPUT_FILE,
             sep=",",
-            encoding="utf-8-sig"
+            encoding="utf-8-sig",
+            index=False
         )
-        logger.info(f"{pivot_df.shape} tablo {OUTPUT_FILE} yazıldı (pivotlanmış)")
+        logger.info(f"{df.shape} satır {OUTPUT_FILE} yazıldı (dikey tablo)")
     else:
         logger.warning("Veri yok")
 
