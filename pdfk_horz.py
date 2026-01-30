@@ -32,13 +32,14 @@ def create_pivot(df, value_col, dtype="int", all_codes=None):
     pivot.index.name = "Tarih"
     pivot = pivot.sort_index(ascending=False)
 
-    # Eksik sütunları ekle (dates.csv’den gelen tüm kodlar)
+    # Eksik sütunları ekle ve sıralamayı dates.csv’ye göre yap
     if all_codes is not None:
         for code in all_codes:
             if code not in pivot.columns:
                 pivot[code] = np.nan
+        pivot = pivot[all_codes]  # sütun sırası dates.csv’ye göre
 
-    # ffill mantığı (Son Tarihli Oranlar hariç)
+    # ffill mantığı
     pivot = pivot.ffill()
 
     def clean_numeric(x):
@@ -71,15 +72,15 @@ def create_pivot(df, value_col, dtype="int", all_codes=None):
     pivot_tables[value_col] = df_out
 
 # --- Pivot tablolar ---
-create_pivot(df_src, "Özkaynaklar", dtype="int", all_codes=codes_set)
-create_pivot(df_src, "Ödenmiş Sermaye", dtype="int", all_codes=codes_set)
-create_pivot(df_src, "Toplam Aktifler", dtype="int", all_codes=codes_set)
-create_pivot(df_src, "Net Borç", dtype="int", all_codes=codes_set)
-create_pivot(df_src, "Yıllık Net Kar", dtype="int", all_codes=codes_set)
-create_pivot(df_src, "Öz Karlılık (%)", dtype="float2", all_codes=codes_set)
-create_pivot(df_src, "Aktif Karlılık (%)", dtype="float2", all_codes=codes_set)
-create_pivot(df_src, "PD Çarpan", dtype="float5", all_codes=codes_set)
-create_pivot(df_src, "F/K Çarpan", dtype="float5", all_codes=codes_set)
+create_pivot(df_src, "Özkaynaklar", dtype="int", all_codes=codes)
+create_pivot(df_src, "Ödenmiş Sermaye", dtype="int", all_codes=codes)
+create_pivot(df_src, "Toplam Aktifler", dtype="int", all_codes=codes)
+create_pivot(df_src, "Net Borç", dtype="int", all_codes=codes)
+create_pivot(df_src, "Yıllık Net Kar", dtype="int", all_codes=codes)
+create_pivot(df_src, "Öz Karlılık (%)", dtype="float2", all_codes=codes)
+create_pivot(df_src, "Aktif Karlılık (%)", dtype="float2", all_codes=codes)
+create_pivot(df_src, "PD Çarpan", dtype="float5", all_codes=codes)
+create_pivot(df_src, "F/K Çarpan", dtype="float5", all_codes=codes)
 
 # --- Dikey tablo (Son Tarihli Oranlar) ---
 def safe_json_value(x):
@@ -94,7 +95,6 @@ def safe_json_value(x):
     return str(x)
 
 def create_latest_vertical(latest_values, all_codes):
-    last_date = list(latest_values.values())[0]["Tarih"]
     rows = []
     for hisse in all_codes:
         row = [
@@ -125,7 +125,7 @@ def create_latest_vertical(latest_values, all_codes):
     ]
     return pd.DataFrame(rows, columns=headers)
 
-df_vert = create_latest_vertical(latest_values, codes_set)
+df_vert = create_latest_vertical(latest_values, codes)
 
 # --- Tek artifact dosyaya yaz ---
 artifact_path = "pdfk_horz.xlsx"
