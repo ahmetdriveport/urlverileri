@@ -13,6 +13,7 @@ AJAX_URL = "https://www.isyatirim.com.tr/_layouts/15/IsYatirim.Website/StockInfo
 BASE_PAGE = "https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/yabanci-oranlari.aspx"
 DATES_FILE = os.path.join(os.path.dirname(__file__),"data","dates.csv")
 OUTPUT_FILE = "gaijin.csv"
+PIVOT_FILE = "pivot_gaijin.csv"
 MAX_ROWS = 5
 
 logging.basicConfig(level=logging.INFO,format="%(asctime)s %(levelname)s %(message)s")
@@ -56,11 +57,18 @@ def safe_post(session,url,payload,headers,n=5,backoff=2.0):
 
 def load_dates_and_hisseler(path=DATES_FILE):
     df = pd.read_csv(path)
-    # Tarih sütunu sadece sıralama için
     df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
     dates = df["Tarih"].dropna().sort_values(ascending=False).tolist()
-    # 🔧 ikinci sütun -> hisse listesi
-    hisseler = df.iloc[:,1].dropna().astype(str).unique().tolist()
+    # ikinci sütun -> hisse listesi normalize edilmiş
+    hisseler = (
+        df.iloc[:,1]
+        .dropna()
+        .astype(str)
+        .str.strip()
+        .str.upper()
+        .unique()
+        .tolist()
+    )
     return dates, hisseler
 
 def fetch_for_target_range(session,start,end,endeks="09"):
@@ -96,23 +104,29 @@ def main():
     if all_data:
         df = pd.DataFrame(all_data)[["Tarih", "HISSE_KODU", "YAB_ORAN_END"]]
 
-        # 🔧 Tekrarları önle
-        df = df.drop_duplicates(subset=["Tarih", "HISSE_KODU", "YAB_ORAN_END"])
-
-        # 🔧 Oranları numeric + round(2)
+        # tipleri garanti altına al
+        df["Tarih"] = pd.to_datetime(df["Tarih"], dayfirst=True, errors="coerce")
+        df["HISSE_KODU"] = df["HISSE_KODU"].astype(str).str.strip().str.upper()
         df["YAB_ORAN_END"] = pd.to_numeric(df["YAB_ORAN_END"], errors="coerce").round(2)
 
-        # 🔧 Hisse kodlarını dates.csv’deki listeye göre filtrele
+        # tekrarları önle
+        df = df.drop_duplicates(subset=["Tarih", "HISSE_KODU", "YAB_ORAN_END"])
+
+        # filtrele
         df = df[df["HISSE_KODU"].isin(hisseler)]
 
-        # 🔧 Dikey tabloyu CSV’ye yaz
-        df.to_csv(
-            OUTPUT_FILE,
-            sep=",",
-            encoding="utf-8-sig",
-            index=False
-        )
+        # dikey tabloyu yaz
+        df.to_csv(OUTPUT_FILE, sep=",", encoding="utf-8-sig", index=False)
         logger.info(f"{df.shape} satır {OUTPUT_FILE} yazıldı (filtrelenmiş dikey tablo)")
+
+        # pivot tabloyu oluştur
+        pivot_df = df.pivot(index="Tarih", columns="HISSE_KODU", values="YAB_ORAN_END")
+        pivot_df = pivot_df.reindex(columns=hisseler)  # kesinlikle dates.csv’den gelen liste
+        pivot_df = pivot_df.sort_index(ascending=False).sort_index(axis=1)
+        pivot_df.index = pivot_df.index.strftime("%d.%m.%Y")
+
+        pivot_df.to_csv(PIVOT_FILE, sep=",", encoding="utf-8-sig")
+        logger.info(f"{pivot_df.shape} boyutlu pivot {PIVOT_FILE} yazıldı")
     else:
         logger.warning("Veri yok")
 
