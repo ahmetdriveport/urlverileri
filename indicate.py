@@ -1,10 +1,13 @@
 import pandas as pd, numpy as np, yaml
 
 def clean_numeric_series(s):
-    s = s.astype(str).str.replace(r"[^\d,.-]", "", regex=True)   # sayı dışı karakterleri temizle
-    s = s.str.replace(",", ".", regex=False)                     # virgül → nokta
+    print("🔍 [DEBUG] clean_numeric_series input:", s.head())
+    s = s.astype(str).str.replace(r"[^\d,.-]", "", regex=True)
+    s = s.str.replace(",", ".", regex=False)
     s = s.replace("", pd.NA).replace("nan", pd.NA).replace("<NA>", pd.NA)
-    return pd.to_numeric(s, errors="coerce")
+    out = pd.to_numeric(s, errors="coerce")
+    print("🔍 [DEBUG] clean_numeric_series output:", out.head())
+    return out
 
 def align_to_master(df, master_dates_desc, tarih_kolon="Tarih"):
     if tarih_kolon in df.columns:
@@ -86,6 +89,7 @@ def calculate_diosc(high, low, close, length=14):
     return (plus-minus).reindex(c.index)
 
 def hesapla_indikatorler(df, tanimlar):
+    print("🔍 [DEBUG] hesapla_indikatorler input df:", df.head())
     sonuc = {}
     for tanim in tanimlar:
         kind, params, output = tanim["kind"], tanim.get("params", {}), tanim["output"]
@@ -99,8 +103,10 @@ def hesapla_indikatorler(df, tanimlar):
             elif kind=="bbp_manual": sonuc[output] = calculate_bbp(df["close"], params.get("length",20)).apply(normalize)
             elif kind=="williamsr": sonuc[output] = calculate_williamsr(df["high"], df["low"], df["close"], params.get("length",14)).apply(normalize)
             elif kind=="diosc": sonuc[output] = calculate_diosc(df["high"], df["low"], df["close"], params.get("length",14)).apply(normalize)
+            print(f"🔍 [DEBUG] {kind} output head:", sonuc[output].head())
         except Exception as e:
-            print(f"❌ {kind} hata: {e}"); sonuc[output] = pd.Series(index=df.index, dtype=float).apply(normalize)
+            print(f"❌ {kind} hata: {e}")
+            sonuc[output] = pd.Series(index=df.index, dtype=float).apply(normalize)
     return sonuc
 
 def yukle_ayarlar(path="data/indicators.yaml"):
@@ -111,11 +117,13 @@ def main():
     df_close = pd.read_excel(xls, "Kapanış", index_col=0)
     df_high  = pd.read_excel(xls, "Yüksek", index_col=0)
     df_low   = pd.read_excel(xls, "Düşük", index_col=0)
+    print("🔍 [DEBUG] Ham df_close head:", df_close.head())
 
     master_dates = pd.to_datetime(df_close.index, dayfirst=True, errors="coerce")
     semboller = pd.read_csv("data/dates.csv", encoding="utf-8").iloc[:, 1].dropna().unique().tolist()
-    sayfa_df = {}
+    print("🔍 [DEBUG] Semboller:", semboller)
 
+    sayfa_df = {}
     for sembol in semboller:
         try:
             df_symbol = pd.DataFrame({
@@ -123,6 +131,7 @@ def main():
                 "high":  clean_numeric_series(df_high.get(sembol)),
                 "low":   clean_numeric_series(df_low.get(sembol))
             }, index=df_close.index).sort_index()
+            print(f"🔍 [DEBUG] df_symbol head for {sembol}:", df_symbol.head())
 
             sonuc = hesapla_indikatorler(df_symbol, yukle_ayarlar())
             if not sonuc:
@@ -130,6 +139,7 @@ def main():
 
             for sayfa_adi, ser_out in sonuc.items():
                 aligned = align_to_master(ser_out.to_frame(sembol), master_dates)
+                print(f"🔍 [DEBUG] aligned head for {sayfa_adi}/{sembol}:", aligned.head())
                 aligned.index = aligned.index.strftime("%d.%m.%Y")
                 if sayfa_adi not in sayfa_df:
                     sayfa_df[sayfa_adi] = {}
@@ -143,10 +153,11 @@ def main():
             df_out = pd.concat(sembol_dict.values(), axis=1)
             df_out.columns = list(sembol_dict.keys())
             df_out.index.name = "Tarih"
+            print(f"🔍 [DEBUG] Final df_out head for {sayfa_adi}:", df_out.head())
             df_out.to_excel(writer, sheet_name=sayfa_adi)
 
     print("✅ indicators.xlsx oluşturuldu")
 
 if __name__ == "__main__":
     main()
-                                                           
+    
