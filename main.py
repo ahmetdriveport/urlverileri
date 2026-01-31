@@ -84,11 +84,11 @@ def pivotla(df,kolon,takip_hisseler,tarih_listesi,haftalik=False):
 tablolar={col:pivotla(df,col,takip_hisseler,secili,haftalik=False) for col in ["Kapanış","Yüksek","Düşük","Hacim(Lot)"]}
 haftalik_kapanis=pivotla(df,"Kapanış",takip_hisseler,secili,haftalik=True)
 
-with pd.ExcelWriter("artifact.xlsx",engine="openpyxl") as writer:
+with pd.ExcelWriter("fiyat.xlsx",engine="openpyxl") as writer:
     for col,p in tablolar.items():
         p.index=p.index.strftime("%d.%m.%Y"); p.to_excel(writer,sheet_name=col)
     if not haftalik_kapanis.empty:
         haftalik_kapanis.index=haftalik_kapanis.index.strftime("%d.%m.%Y")
         haftalik_kapanis.to_excel(writer,sheet_name="Haftalik_Kapanis")
 
-print("✅ artifact.xlsx oluşturuldu")
+print("✅ fiyat.xlsx oluşturuldu")
