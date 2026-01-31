@@ -20,8 +20,8 @@ def align_to_master(df, master_dates_desc, tarih_kolon="Tarih"):
         first_valid = ser.first_valid_index()
         if first_valid is None:
             continue
+        # İlk valid değerden önce NaN bırak, ffill yok
         ser.loc[ser.index < first_valid] = pd.NA
-        ser.loc[ser.index >= first_valid] = ser.loc[ser.index >= first_valid].ffill()
         df[col] = ser
 
     return df.sort_index(ascending=False)
@@ -34,12 +34,17 @@ def normalize(x):
 # EMA (SMA ile başlat, ilk n gün boş)
 def ema_with_sma_start(series, length):
     s = pd.to_numeric(series, errors="coerce")
-    if s.notna().sum() < length: return pd.Series(index=s.index, dtype=float)
-    ema = pd.Series(index=s.index, dtype=float); valid = s.dropna()
-    sma_start = valid.iloc[:length].mean(); ema.loc[valid.index[length-1]] = sma_start
-    alpha = 2/(length+1); prev = sma_start
+    if s.notna().sum() < length: 
+        return pd.Series(index=s.index, dtype=float)
+    ema = pd.Series(index=s.index, dtype=float)
+    valid = s.dropna()
+    sma_start = valid.iloc[:length].mean()
+    ema.loc[valid.index[length-1]] = sma_start
+    alpha = 2/(length+1)
+    prev = sma_start
     for idx in valid.index[length:]:
-        prev = alpha*valid.loc[idx] + (1-alpha)*prev; ema.loc[idx] = prev
+        prev = alpha*valid.loc[idx] + (1-alpha)*prev
+        ema.loc[idx] = prev
     return ema
 
 # RSI (Wilder RMA, ilk period boş)
@@ -47,8 +52,8 @@ def calculate_rsi(series, period=14):
     s = pd.to_numeric(series, errors="coerce")
     delta = s.diff()
     gain, loss = delta.clip(lower=0), -delta.clip(upper=0)
-    avg_gain = gain.rolling(window=period, min_periods=period).mean()
-    avg_loss = loss.rolling(window=period, min_periods=period).mean()
+    avg_gain = gain.ewm(alpha=1/period, adjust=False, min_periods=period).mean()
+    avg_loss = loss.ewm(alpha=1/period, adjust=False, min_periods=period).mean()
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
     return rsi.reindex(series.index)
@@ -63,7 +68,7 @@ def calculate_macd(series, fast=12, slow=26, signal=9):
     hist = macd_line - signal_line
     return pd.DataFrame({"MACD": macd_line, "SIGNAL": signal_line, "HIST": hist}).reindex(series.index)
 
-# Bollinger %B (TradingView uyumlu, 2 std sapma)
+# Bollinger %B (ilk length gün boş)
 def calculate_bbp(series, length=20, mult=2):
     s = pd.to_numeric(series, errors="coerce")
     ma = s.rolling(window=length, min_periods=length).mean()
@@ -83,11 +88,12 @@ def calculate_williamsr(high, low, close, length=14):
 def rma(series, length): 
     return series.ewm(alpha=1/length, adjust=False, min_periods=length).mean()
 
-# DIOSC
+# DIOSC (ilk length gün boş)
 def calculate_diosc(high, low, close, length=14):
     h, l, c = pd.to_numeric(high, errors="coerce"), pd.to_numeric(low, errors="coerce"), pd.to_numeric(close, errors="coerce")
     up, down = h.diff(), -l.diff()
-    plus_dm = np.where((up>down)&(up>0), up, 0.0); minus_dm = np.where((down>up)&(down>0), down, 0.0)
+    plus_dm = np.where((up>down)&(up>0), up, 0.0)
+    minus_dm = np.where((down>up)&(down>0), down, 0.0)
     tr = pd.concat([h-l, (h-c.shift()).abs(), (l-c.shift()).abs()], axis=1).max(axis=1)
     truerange = rma(tr, length)
     plus = 100*rma(pd.Series(plus_dm, index=h.index), length)/truerange
@@ -124,7 +130,8 @@ def hesapla_indikatorler(df, tanimlar):
     return sonuc
 
 def yukle_ayarlar(path="data/indicators.yaml"):
-    with open(path,"r",encoding="utf-8") as f: return yaml.safe_load(f)["indikatorler"]
+    with open(path,"r",encoding="utf-8") as f: 
+        return yaml.safe_load(f)["indikatorler"]
 
 def main():
     xls = pd.ExcelFile("fiyat.xlsx")
