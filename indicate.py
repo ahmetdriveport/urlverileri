@@ -89,7 +89,7 @@ def calculate_diosc(high, low, close, length=14):
     return (plus-minus).reindex(c.index)
 
 def hesapla_indikatorler(df, tanimlar):
-    print("🔍 [DEBUG] hesapla_indikatorler input df:", df.head(20))
+    print("🔍 [DEBUG] hesapla_indikatorler input df (50 rows):", df.head(50))
     sonuc = {}
     for tanim in tanimlar:
         kind, params, output = tanim["kind"], tanim.get("params", {}), tanim["output"]
@@ -108,7 +108,8 @@ def hesapla_indikatorler(df, tanimlar):
                 if isinstance(output, dict):
                     for kaynak, hedef in output.items():
                         sonuc[hedef] = cikti[kaynak].apply(normalize)
-                        print(f"🔍 [DEBUG] macd {kaynak} → {hedef} sample:", sonuc[hedef].head(20))
+                        print(f"🔍 [DEBUG] macd {kaynak} → {hedef} head (50 rows):", sonuc[hedef].head(50))
+                        print(f"🔍 [DEBUG] macd {kaynak} → {hedef} tail (50 rows):", sonuc[hedef].tail(50))
             elif kind == "bbp_manual":
                 sonuc[output] = calculate_bbp(df["close"], params.get("length",20)).apply(normalize)
             elif kind == "williamsr":
@@ -116,14 +117,14 @@ def hesapla_indikatorler(df, tanimlar):
             elif kind == "diosc":
                 sonuc[output] = calculate_diosc(df["high"], df["low"], df["close"], params.get("length",14)).apply(normalize)
 
-            # 🔍 Tüm indikatörler için 20 satır debug
-            print(f"🔍 [DEBUG] {kind} output sample (20 rows):", sonuc[output].head(20))
+            # 🔍 Tüm indikatörler için hem head hem tail debug
+            print(f"🔍 [DEBUG] {kind} output head (50 rows):", sonuc[output].head(50))
+            print(f"🔍 [DEBUG] {kind} output tail (50 rows):", sonuc[output].tail(50))
 
         except Exception as e:
             print(f"❌ {kind} hata: {e}")
             sonuc[output] = pd.Series(index=df.index, dtype=float).apply(normalize)
-    return sonuc
-
+    return sonuc 
 
 def yukle_ayarlar(path="data/indicators.yaml"):
     with open(path,"r",encoding="utf-8") as f: return yaml.safe_load(f)["indikatorler"]
@@ -133,7 +134,7 @@ def main():
     df_close = pd.read_excel(xls, "Kapanış", index_col=0)
     df_high  = pd.read_excel(xls, "Yüksek", index_col=0)
     df_low   = pd.read_excel(xls, "Düşük", index_col=0)
-    print("🔍 [DEBUG] Ham df_close head (20 rows):", df_close.head(20))
+    print("🔍 [DEBUG] Ham df_close head (50 rows):", df_close.head(50))
 
     master_dates = pd.to_datetime(df_close.index, dayfirst=True, errors="coerce")
     semboller = pd.read_csv("data/dates.csv", encoding="utf-8").iloc[:, 1].dropna().unique().tolist()
@@ -148,8 +149,8 @@ def main():
                 "low":   clean_numeric_series(df_low.get(sembol))
             }, index=df_close.index).sort_index()
 
-            # 🔍 Artık 20 satır gösteriyoruz
-            print(f"🔍 [DEBUG] df_symbol sample (20 rows) for {sembol}:", df_symbol.head(20))
+            # 🔍 Artık 50 satır gösteriyoruz
+            print(f"🔍 [DEBUG] df_symbol sample (50 rows) for {sembol}:", df_symbol.head(50))
 
             sonuc = hesapla_indikatorler(df_symbol, yukle_ayarlar())
             if not sonuc:
@@ -157,7 +158,7 @@ def main():
 
             for sayfa_adi, ser_out in sonuc.items():
                 aligned = align_to_master(ser_out.to_frame(sembol), master_dates)
-                print(f"🔍 [DEBUG] aligned sample (20 rows) for {sayfa_adi}/{sembol}:", aligned.head(20))
+                print(f"🔍 [DEBUG] aligned sample (50 rows) for {sayfa_adi}/{sembol}:", aligned.head(50))
                 aligned.index = aligned.index.strftime("%d.%m.%Y")
                 if sayfa_adi not in sayfa_df:
                     sayfa_df[sayfa_adi] = {}
@@ -171,7 +172,7 @@ def main():
             df_out = pd.concat(sembol_dict.values(), axis=1)
             df_out.columns = list(sembol_dict.keys())
             df_out.index.name = "Tarih"
-            print(f"🔍 [DEBUG] Final df_out sample (20 rows) for {sayfa_adi}:", df_out.head(20))
+            print(f"🔍 [DEBUG] Final df_out sample (50 rows) for {sayfa_adi}:", df_out.head(50))
             df_out.to_excel(writer, sheet_name=sayfa_adi)
 
     print("✅ indicators.xlsx oluşturuldu")
