@@ -43,7 +43,7 @@ def fiyat_hacim_tek_gun(g,a,y):
 
 df_csv=pd.read_csv("data/dates.csv",encoding="utf-8")
 csv_tarihleri=df_csv["Tarih"].dropna().tolist()
-secili=list(reversed(secili_tarihleri_bul(csv_tarihleri,5)))
+secili=list(reversed(secili_tarihleri_bul(csv_tarihleri,150)))
 takip_hisseler=df_csv.iloc[:,1].dropna().unique().tolist()
 
 tum_veriler=[v for t in secili for v in fiyat_hacim_tek_gun(*map(int,t.split(".")))]
