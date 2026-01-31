@@ -28,8 +28,9 @@ jobs:
         run: |
           python main.py
 
-      - name: Upload artifacts
+      - name: Upload Excel artifact
         uses: actions/upload-artifact@v4
         with:
-          name: csv-results
-          path: artifact_*.csv
+          name: excel-results
+          path: artifact.xlsx
+          retention-days: 3
