@@ -1,0 +1,50 @@
+indikatorler:
+  - kind: rsi
+    params:
+      length: 14
+    output: RSI
+
+  - kind: macd
+    params:
+      fast: 12
+      slow: 26
+      signal: 9
+    output:
+      MACD: MACD
+      SIGNAL: Sinyal
+      HIST: Histogram
+
+  - kind: bbp_manual
+    params:
+      length: 20
+    output: yuzdeb
+
+  - kind: ema
+    params:
+      length: 8
+    output: EMA_8
+
+  - kind: ema
+    params:
+      length: 23
+    output: EMA_23
+
+  - kind: ema
+    params:
+      length: 50
+    output: EMA_50
+
+  - kind: ema
+    params:
+      length: 100
+    output: EMA_100
+
+  - kind: williamsr
+    params:
+      length: 14
+    output: williams
+
+  - kind: diosc
+    params:
+      length: 14
+    output: DIOSC
