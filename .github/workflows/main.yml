@@ -1,4 +1,4 @@
-name: Run Main Script
+name: Main Fiyat
 
 on:
   workflow_dispatch:
