@@ -135,12 +135,17 @@ def yukle_ayarlar(path="data/indicators.yaml"):
 
 def main():
     xls = pd.ExcelFile("fiyat.xlsx")
+    # Kapanış, Yüksek, Düşük tablolarını oku
     df_close = pd.read_excel(xls, "Kapanış", index_col=0)
     df_high  = pd.read_excel(xls, "Yüksek", index_col=0)
     df_low   = pd.read_excel(xls, "Düşük", index_col=0)
 
-    # Master tarihleri kronolojik sıraya sok
-    master_dates = pd.to_datetime(df_close.index, dayfirst=True, errors="coerce").sort_values(ascending=True)
+    # Master tarihleri datetime'a çevir ve kronolojik sıraya sok
+    df_close.index = pd.to_datetime(df_close.index, dayfirst=True, errors="raise")
+    df_high.index  = pd.to_datetime(df_high.index, dayfirst=True, errors="raise")
+    df_low.index   = pd.to_datetime(df_low.index, dayfirst=True, errors="raise")
+
+    master_dates = df_close.index.sort_values(ascending=True)
 
     # Sembolleri oku
     semboller = pd.read_csv("data/dates.csv", encoding="utf-8").iloc[:, 1].dropna().unique().tolist()
@@ -153,7 +158,7 @@ def main():
                 "close": clean_numeric_series(df_close.get(sembol)),
                 "high":  clean_numeric_series(df_high.get(sembol)),
                 "low":   clean_numeric_series(df_low.get(sembol))
-            }, index=pd.to_datetime(df_close.index, dayfirst=True, errors="coerce")).sort_index(ascending=True)
+            }, index=master_dates).sort_index(ascending=True)
 
             # İndikatörleri hesapla
             sonuc = hesapla_indikatorler(df_symbol, yukle_ayarlar())
@@ -163,6 +168,7 @@ def main():
             # Her indikatör için master tarih ile hizala
             for sayfa_adi, ser_out in sonuc.items():
                 aligned = align_to_master(ser_out.to_frame(sembol), master_dates)
+                # Çıktı için gün/ay/yıl formatı
                 aligned.index = aligned.index.strftime("%d.%m.%Y")
                 if sayfa_adi not in sayfa_df:
                     sayfa_df[sayfa_adi] = {}
@@ -189,4 +195,4 @@ def main():
     print("✅ indicators.xlsx oluşturuldu")
 
 if __name__ == "__main__":
-    main()    
+    main()
