@@ -221,16 +221,16 @@ def main():
 
             except Exception as e:
                 print(f"❌ {sembol} için hesaplama hatası: {e}")
-
-        # 6️⃣ artifact.xlsx içine yaz
-        with pd.ExcelWriter("artifact.xlsx", engine="openpyxl", mode="a") as writer:
+       
+        # 6️⃣ indicators.xlsx içine yaz
+        with pd.ExcelWriter("indicators.xlsx", engine="openpyxl", mode="w") as writer:
             for sayfa_adi, sembol_dict in sayfa_df.items():
                 df_out = pd.concat(sembol_dict.values(), axis=1)
                 df_out.columns = list(sembol_dict.keys())
                 df_out.index.name = "Tarih"
                 df_out.to_excel(writer, sheet_name=sayfa_adi)
 
-        print("✅ İndikatörler hesaplandı ve artifact.xlsx içine yazıldı.")
+        print("✅ İndikatörler hesaplandı ve indicators.xlsx içine yazıldı.")
 
     except Exception as e:
         import traceback
