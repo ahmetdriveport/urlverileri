@@ -6,12 +6,12 @@ def clean_numeric_series(s):
     s = s.replace("", pd.NA).replace("nan", pd.NA).replace("<NA>", pd.NA)
     return pd.to_numeric(s, errors="coerce")
 
-def align_to_master(df, master_dates_desc, tarih_kolon="Tarih"):
+def align_to_master(df, master_dates, tarih_kolon="Tarih"):
     if tarih_kolon in df.columns:
         df[tarih_kolon] = pd.to_datetime(df[tarih_kolon], dayfirst=True, errors="coerce")
         df = df.dropna(subset=[tarih_kolon]).set_index(tarih_kolon)
 
-    master_sorted = pd.to_datetime(master_dates_desc, dayfirst=True, errors="coerce").sort_values(ascending=True)
+    master_sorted = pd.to_datetime(master_dates, dayfirst=True, errors="coerce").sort_values(ascending=True)
     df.index = pd.to_datetime(df.index, dayfirst=True, errors="coerce")
     df = df.reindex(master_sorted)
 
@@ -20,11 +20,11 @@ def align_to_master(df, master_dates_desc, tarih_kolon="Tarih"):
         first_valid = ser.first_valid_index()
         if first_valid is None:
             continue
-        # İlk valid değerden önce NaN bırak, ffill yok
+        # İlk valid değerden önce NaN bırak
         ser.loc[ser.index < first_valid] = pd.NA
         df[col] = ser
 
-    return df.sort_index(ascending=False)
+    return df  # kronolojik olarak bırakıyoruz, çıktı aşamasında ters çevrilecek
 
 def normalize(x):
     if pd.isna(x): return None
@@ -47,7 +47,7 @@ def ema_with_sma_start(series, length):
         ema.loc[idx] = prev
     return ema
 
-# RSI (Wilder RMA, ilk period boş)
+# RSI (ilk period boş)
 def calculate_rsi(series, period=14):
     s = pd.to_numeric(series, errors="coerce")
     delta = s.diff()
@@ -56,9 +56,9 @@ def calculate_rsi(series, period=14):
     avg_loss = loss.ewm(alpha=1/period, adjust=False, min_periods=period).mean()
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
-    return rsi.reindex(series.index)
+    return rsi
 
-# MACD (EMA’lar SMA ile başlatılacak, ilk ~35 gün boş)
+# MACD
 def calculate_macd(series, fast=12, slow=26, signal=9):
     s = pd.to_numeric(series, errors="coerce")
     fast_ema = ema_with_sma_start(s, fast)
@@ -66,29 +66,29 @@ def calculate_macd(series, fast=12, slow=26, signal=9):
     macd_line = fast_ema - slow_ema
     signal_line = macd_line.ewm(span=signal, adjust=False, min_periods=signal).mean()
     hist = macd_line - signal_line
-    return pd.DataFrame({"MACD": macd_line, "SIGNAL": signal_line, "HIST": hist}).reindex(series.index)
+    return pd.DataFrame({"MACD": macd_line, "SIGNAL": signal_line, "HIST": hist})
 
-# Bollinger %B (ilk length gün boş)
+# Bollinger %B
 def calculate_bbp(series, length=20, mult=2):
     s = pd.to_numeric(series, errors="coerce")
     ma = s.rolling(window=length, min_periods=length).mean()
     std = s.rolling(window=length, min_periods=length).std(ddof=0)
     upper, lower = ma + mult*std, ma - mult*std
-    return ((s - lower) / (upper - lower)).reindex(series.index)
+    return ((s - lower) / (upper - lower))
 
-# Williams %R (ilk length gün boş)
+# Williams %R
 def calculate_williamsr(high, low, close, length=14):
     h, l, c = pd.to_numeric(high, errors="coerce"), pd.to_numeric(low, errors="coerce"), pd.to_numeric(close, errors="coerce")
     highest_high = h.rolling(window=length, min_periods=length).max()
     lowest_low = l.rolling(window=length, min_periods=length).min()
     wr = (highest_high - c) / (highest_high - lowest_low) * -100
-    return wr.reindex(c.index)
+    return wr
 
 # Wilder RMA
 def rma(series, length): 
     return series.ewm(alpha=1/length, adjust=False, min_periods=length).mean()
 
-# DIOSC (ilk length gün boş)
+# DIOSC
 def calculate_diosc(high, low, close, length=14):
     h, l, c = pd.to_numeric(high, errors="coerce"), pd.to_numeric(low, errors="coerce"), pd.to_numeric(close, errors="coerce")
     up, down = h.diff(), -l.diff()
@@ -98,7 +98,7 @@ def calculate_diosc(high, low, close, length=14):
     truerange = rma(tr, length)
     plus = 100*rma(pd.Series(plus_dm, index=h.index), length)/truerange
     minus = 100*rma(pd.Series(minus_dm, index=h.index), length)/truerange
-    return (plus-minus).reindex(c.index)
+    return (plus-minus)
 
 def hesapla_indikatorler(df, tanimlar):
     sonuc = {}
@@ -139,22 +139,28 @@ def main():
     df_high  = pd.read_excel(xls, "Yüksek", index_col=0)
     df_low   = pd.read_excel(xls, "Düşük", index_col=0)
 
-    master_dates = pd.to_datetime(df_close.index, dayfirst=True, errors="coerce")
+    # Master tarihleri kronolojik sıraya sok
+    master_dates = pd.to_datetime(df_close.index, dayfirst=True, errors="coerce").sort_values(ascending=True)
+
+    # Sembolleri oku
     semboller = pd.read_csv("data/dates.csv", encoding="utf-8").iloc[:, 1].dropna().unique().tolist()
 
     sayfa_df = {}
     for sembol in semboller:
         try:
+            # Sembol bazlı fiyat serisi, kronolojik sırada
             df_symbol = pd.DataFrame({
                 "close": clean_numeric_series(df_close.get(sembol)),
                 "high":  clean_numeric_series(df_high.get(sembol)),
                 "low":   clean_numeric_series(df_low.get(sembol))
-            }, index=df_close.index).sort_index()
+            }, index=pd.to_datetime(df_close.index, dayfirst=True, errors="coerce")).sort_index(ascending=True)
 
+            # İndikatörleri hesapla
             sonuc = hesapla_indikatorler(df_symbol, yukle_ayarlar())
             if not sonuc:
                 continue
 
+            # Her indikatör için master tarih ile hizala
             for sayfa_adi, ser_out in sonuc.items():
                 aligned = align_to_master(ser_out.to_frame(sembol), master_dates)
                 aligned.index = aligned.index.strftime("%d.%m.%Y")
@@ -165,17 +171,22 @@ def main():
         except Exception as e:
             print(f"❌ {sembol} hata: {e}")
 
+    # Excel çıktısı oluştur
     with pd.ExcelWriter("indicators.xlsx", engine="openpyxl", mode="w") as writer:
         for sayfa_adi, sembol_dict in sayfa_df.items():
             df_out = pd.concat(sembol_dict.values(), axis=1)
             df_out.columns = list(sembol_dict.keys())
             df_out.index.name = "Tarih"
+            # Çıktıyı bugünden geçmişe doğru sırala
+            df_out = df_out.sort_index(ascending=False)
+
             # ✅ Debug sadece final tablolar için
             print(f"🔍 [DEBUG] Final df_out sample (50 rows) for {sayfa_adi}:")
             print(df_out.head(50))
+
             df_out.to_excel(writer, sheet_name=sayfa_adi)
 
     print("✅ indicators.xlsx oluşturuldu")
 
 if __name__ == "__main__":
-    main()
+    main()    
