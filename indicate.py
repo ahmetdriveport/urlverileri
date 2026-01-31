@@ -168,8 +168,7 @@ def main():
             # Her indikatör için master tarih ile hizala
             for sayfa_adi, ser_out in sonuc.items():
                 aligned = align_to_master(ser_out.to_frame(sembol), master_dates)
-                # Çıktı için gün/ay/yıl formatı
-                aligned.index = aligned.index.strftime("%d.%m.%Y")
+                # Index datetime olarak kalıyor, string'e çevrilmiyor
                 if sayfa_adi not in sayfa_df:
                     sayfa_df[sayfa_adi] = {}
                 sayfa_df[sayfa_adi][sembol] = aligned[sembol]
@@ -178,19 +177,19 @@ def main():
             print(f"❌ {sembol} hata: {e}")
 
     # Excel çıktısı oluştur
-with pd.ExcelWriter("indicators.xlsx", engine="openpyxl", mode="w") as writer:
-    for sayfa_adi, sembol_dict in sayfa_df.items():
-        df_out = pd.concat(sembol_dict.values(), axis=1)
-        df_out.columns = list(sembol_dict.keys())
-        df_out.index.name = "Tarih"
-        # Çıktıyı bugünden geçmişe doğru sırala (datetime üzerinde)
-        df_out = df_out.sort_index(ascending=False)
+    with pd.ExcelWriter("indicators.xlsx", engine="openpyxl", mode="w") as writer:
+        for sayfa_adi, sembol_dict in sayfa_df.items():
+            df_out = pd.concat(sembol_dict.values(), axis=1)
+            df_out.columns = list(sembol_dict.keys())
+            df_out.index.name = "Tarih"
+            # Çıktıyı bugünden geçmişe doğru sırala (datetime üzerinde)
+            df_out = df_out.sort_index(ascending=False)
 
-        # ✅ Debug sadece final tablolar için
-        print(f"🔍 [DEBUG] Final df_out sample (50 rows) for {sayfa_adi}:")
-        print(df_out.head(50))
+            # ✅ Debug sadece final tablolar için
+            print(f"🔍 [DEBUG] Final df_out sample (50 rows) for {sayfa_adi}:")
+            print(df_out.head(50))
 
-        df_out.to_excel(writer, sheet_name=sayfa_adi)
+            df_out.to_excel(writer, sheet_name=sayfa_adi)
 
     print("✅ indicators.xlsx oluşturuldu")
 
