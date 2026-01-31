@@ -3,7 +3,7 @@ name: Main Fiyat
 on:
   workflow_dispatch:
   schedule:
-    - cron: "30 15 * * *" 
+    - cron: "30 15 * * *"
 
 jobs:
   run-main:
@@ -26,11 +26,22 @@ jobs:
         env:
           MAIN: ${{ secrets.MAIN }}
         run: |
-          python main.py
+          python main.py   # çıktı: fiyat.xlsx
 
-      - name: Upload Excel artifact
+      - name: Run indicate.py
+        run: |
+          python indicate.py   # çıktı: indicators.xlsx
+
+      - name: Upload Fiyat Excel
         uses: actions/upload-artifact@v4
         with:
-          name: excel-results
-          path: artifact.xlsx
+          name: fiyat-results
+          path: fiyat.xlsx
+          retention-days: 3
+
+      - name: Upload Indicators Excel
+        uses: actions/upload-artifact@v4
+        with:
+          name: indicators-results
+          path: indicators.xlsx
           retention-days: 3
