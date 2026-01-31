@@ -11,3 +11,4 @@ gspread-dataframe==3.3.0
 pandas-ta==0.4.71b0
 pytz
 python-dotenv==1.0.1
+pyyaml==6.0.2
