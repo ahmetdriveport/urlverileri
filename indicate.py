@@ -10,18 +10,31 @@ def clean_numeric_series(s):
     return out
 
 def align_to_master(df, master_dates_desc, tarih_kolon="Tarih"):
+    # Eğer dataframe'de tarih kolonu varsa önce datetime'a çevir
     if tarih_kolon in df.columns:
         df[tarih_kolon] = pd.to_datetime(df[tarih_kolon], dayfirst=True, errors="coerce")
         df = df.dropna(subset=[tarih_kolon]).set_index(tarih_kolon)
-    master_sorted = master_dates_desc.sort_values(ascending=True)
+
+    # Hem master hem df index'i normalize et
+    master_sorted = pd.to_datetime(master_dates_desc, dayfirst=True, errors="coerce").sort_values(ascending=True)
+    df.index = pd.to_datetime(df.index, dayfirst=True, errors="coerce")
+
+    # Master tarihleri ile reindex
     df = df.reindex(master_sorted)
+
+    # İlk valid değerden önce NaN, sonrasında forward fill
     for col in df.columns:
-        ser = df[col]; first_valid = ser.first_valid_index()
-        if first_valid is None: continue
+        ser = df[col]
+        first_valid = ser.first_valid_index()
+        if first_valid is None:
+            continue
         ser.loc[ser.index < first_valid] = pd.NA
         ser.loc[ser.index >= first_valid] = ser.loc[ser.index >= first_valid].ffill()
         df[col] = ser
+
+    # Sonuç: tarihleri descending sırada döndür
     return df.sort_index(ascending=False)
+
 
 def normalize(x):
     if pd.isna(x): return None
