@@ -53,4 +53,4 @@ with pd.ExcelWriter(artifact,engine="openpyxl") as w:
     [df.to_excel(w,sheet_name=name[:30],index=False) for name,df in pivot_tables.items()]
     latest_vertical().to_excel(w,sheet_name="Son_Tarihli_Oranlar",index=False)
 
-print("✅ Tek artifact oluşturuldu:",artifact)
+print("✅ Artifact oluşturuldu:",artifact)
