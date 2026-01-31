@@ -183,8 +183,8 @@ def main():
         # 1️⃣ İndikatör parametrelerini yükle
         tanimlar = yukle_ayarlar()
 
-        # 2️⃣ artifact.xlsx içinden verileri oku
-        xls = pd.ExcelFile("artifact.xlsx")
+        # 2️⃣ fiyat.xlsx içinden verileri oku
+        xls = pd.ExcelFile("fiyat.xlsx")
         df_close = pd.read_excel(xls, sheet_name="Kapanış", index_col=0)
         df_high  = pd.read_excel(xls, sheet_name="Yüksek", index_col=0)
         df_low   = pd.read_excel(xls, sheet_name="Düşük", index_col=0)
