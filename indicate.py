@@ -1,8 +1,8 @@
 import pandas as pd, numpy as np, yaml
 
 def clean_numeric_series(s):
-    s = s.astype(str).str.replace(r"[^\d,.-]", "", regex=True)
-    s = s.str.replace(",", ".", regex=False)
+    s = s.astype(str).str.replace(r"[^\d,.-]", "", regex=True)   # sayı dışı karakterleri temizle
+    s = s.str.replace(",", ".", regex=False)                     # virgül → nokta
     s = s.replace("", pd.NA).replace("nan", pd.NA).replace("<NA>", pd.NA)
     return pd.to_numeric(s, errors="coerce")
 
@@ -105,15 +105,17 @@ def hesapla_indikatorler(df, tanimlar):
 
 def yukle_ayarlar(path="data/indicators.yaml"):
     with open(path,"r",encoding="utf-8") as f: return yaml.safe_load(f)["indikatorler"]
-        
+
 def main():
     xls = pd.ExcelFile("fiyat.xlsx")
-    df_close = pd.read_excel(xls,"Kapanış",index_col=0)
-    df_high  = pd.read_excel(xls,"Yüksek",index_col=0)
-    df_low   = pd.read_excel(xls,"Düşük",index_col=0)
+    df_close = pd.read_excel(xls, "Kapanış", index_col=0)
+    df_high  = pd.read_excel(xls, "Yüksek", index_col=0)
+    df_low   = pd.read_excel(xls, "Düşük", index_col=0)
+
     master_dates = pd.to_datetime(df_close.index, dayfirst=True, errors="coerce")
-    semboller = pd.read_csv("data/dates.csv",encoding="utf-8").iloc[:,1].dropna().unique().tolist()
+    semboller = pd.read_csv("data/dates.csv", encoding="utf-8").iloc[:, 1].dropna().unique().tolist()
     sayfa_df = {}
+
     for sembol in semboller:
         try:
             df_symbol = pd.DataFrame({
@@ -121,24 +123,30 @@ def main():
                 "high":  clean_numeric_series(df_high.get(sembol)),
                 "low":   clean_numeric_series(df_low.get(sembol))
             }, index=df_close.index).sort_index()
+
             sonuc = hesapla_indikatorler(df_symbol, yukle_ayarlar())
-            if not sonuc: continue
+            if not sonuc:
+                continue
+
             for sayfa_adi, ser_out in sonuc.items():
                 aligned = align_to_master(ser_out.to_frame(sembol), master_dates)
                 aligned.index = aligned.index.strftime("%d.%m.%Y")
-                if sayfa_adi not in sayfa_df: sayfa_df[sayfa_adi] = {}
+                if sayfa_adi not in sayfa_df:
+                    sayfa_df[sayfa_adi] = {}
                 sayfa_df[sayfa_adi][sembol] = aligned[sembol]
+
         except Exception as e:
             print(f"❌ {sembol} hata: {e}")
+
     with pd.ExcelWriter("indicators.xlsx", engine="openpyxl", mode="w") as writer:
         for sayfa_adi, sembol_dict in sayfa_df.items():
             df_out = pd.concat(sembol_dict.values(), axis=1)
             df_out.columns = list(sembol_dict.keys())
             df_out.index.name = "Tarih"
             df_out.to_excel(writer, sheet_name=sayfa_adi)
+
     print("✅ indicators.xlsx oluşturuldu")
 
 if __name__ == "__main__":
     main()
-
-    
+                                                           
