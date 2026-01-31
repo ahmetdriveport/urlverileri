@@ -96,8 +96,14 @@ def hesapla_indikatorler(df, tanimlar):
         try:
             if kind == "ema":
                 sonuc[output] = ema_with_sma_start(df["close"], params.get("length",20)).apply(normalize)
+                print(f"🔍 [DEBUG] ema output head (50 rows):", sonuc[output].head(50))
+                print(f"🔍 [DEBUG] ema output tail (50 rows):", sonuc[output].tail(50))
+
             elif kind == "rsi":
                 sonuc[output] = calculate_rsi(df["close"], params.get("length",14)).apply(normalize)
+                print(f"🔍 [DEBUG] rsi output head (50 rows):", sonuc[output].head(50))
+                print(f"🔍 [DEBUG] rsi output tail (50 rows):", sonuc[output].tail(50))
+
             elif kind == "macd":
                 cikti = calculate_macd(
                     df["close"],
@@ -110,21 +116,31 @@ def hesapla_indikatorler(df, tanimlar):
                         sonuc[hedef] = cikti[kaynak].apply(normalize)
                         print(f"🔍 [DEBUG] macd {kaynak} → {hedef} head (50 rows):", sonuc[hedef].head(50))
                         print(f"🔍 [DEBUG] macd {kaynak} → {hedef} tail (50 rows):", sonuc[hedef].tail(50))
+
             elif kind == "bbp_manual":
                 sonuc[output] = calculate_bbp(df["close"], params.get("length",20)).apply(normalize)
+                print(f"🔍 [DEBUG] bbp output head (50 rows):", sonuc[output].head(50))
+                print(f"🔍 [DEBUG] bbp output tail (50 rows):", sonuc[output].tail(50))
+
             elif kind == "williamsr":
                 sonuc[output] = calculate_williamsr(df["high"], df["low"], df["close"], params.get("length",14)).apply(normalize)
+                print(f"🔍 [DEBUG] williamsr output head (50 rows):", sonuc[output].head(50))
+                print(f"🔍 [DEBUG] williamsr output tail (50 rows):", sonuc[output].tail(50))
+
             elif kind == "diosc":
                 sonuc[output] = calculate_diosc(df["high"], df["low"], df["close"], params.get("length",14)).apply(normalize)
-
-            # 🔍 Tüm indikatörler için hem head hem tail debug
-            print(f"🔍 [DEBUG] {kind} output head (50 rows):", sonuc[output].head(50))
-            print(f"🔍 [DEBUG] {kind} output tail (50 rows):", sonuc[output].tail(50))
+                print(f"🔍 [DEBUG] diosc output head (50 rows):", sonuc[output].head(50))
+                print(f"🔍 [DEBUG] diosc output tail (50 rows):", sonuc[output].tail(50))
 
         except Exception as e:
             print(f"❌ {kind} hata: {e}")
-            sonuc[output] = pd.Series(index=df.index, dtype=float).apply(normalize)
-    return sonuc 
+            # hata durumunda boş seri oluştur
+            if isinstance(output, dict):
+                for _, hedef in output.items():
+                    sonuc[hedef] = pd.Series(index=df.index, dtype=float).apply(normalize)
+            else:
+                sonuc[output] = pd.Series(index=df.index, dtype=float).apply(normalize)
+    return sonuc
 
 def yukle_ayarlar(path="data/indicators.yaml"):
     with open(path,"r",encoding="utf-8") as f: return yaml.safe_load(f)["indikatorler"]
