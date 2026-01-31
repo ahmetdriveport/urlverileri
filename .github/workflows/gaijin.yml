@@ -29,11 +29,13 @@ jobs:
           pip install requests pandas certifi selenium webdriver-manager openpyxl
 
       - name: Run gaijin
+        env:
+          GAIJIN: ${{ secrets.GAIJIN }}
         run: python gaijin.py
 
       - name: Upload Excel artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pivot-excel
+          name: pivot-gaijin-excel
           path: pivot_gaijin.xlsx
           retention-days: 3
