@@ -89,25 +89,41 @@ def calculate_diosc(high, low, close, length=14):
     return (plus-minus).reindex(c.index)
 
 def hesapla_indikatorler(df, tanimlar):
-    print("🔍 [DEBUG] hesapla_indikatorler input df:", df.head())
+    print("🔍 [DEBUG] hesapla_indikatorler input df:", df.head(20))
     sonuc = {}
     for tanim in tanimlar:
         kind, params, output = tanim["kind"], tanim.get("params", {}), tanim["output"]
         try:
-            if kind=="ema": sonuc[output] = ema_with_sma_start(df["close"], params.get("length",20)).apply(normalize)
-            elif kind=="rsi": sonuc[output] = calculate_rsi(df["close"], params.get("length",14)).apply(normalize)
-            elif kind=="macd":
-                cikti = calculate_macd(df["close"], fast=params.get("fast",12), slow=params.get("slow",26), signal=params.get("signal",9))
+            if kind == "ema":
+                sonuc[output] = ema_with_sma_start(df["close"], params.get("length",20)).apply(normalize)
+            elif kind == "rsi":
+                sonuc[output] = calculate_rsi(df["close"], params.get("length",14)).apply(normalize)
+            elif kind == "macd":
+                cikti = calculate_macd(
+                    df["close"],
+                    fast=params.get("fast",12),
+                    slow=params.get("slow",26),
+                    signal=params.get("signal",9)
+                )
                 if isinstance(output, dict):
-                    for kaynak, hedef in output.items(): sonuc[hedef] = cikti.get(kaynak).apply(normalize)
-            elif kind=="bbp_manual": sonuc[output] = calculate_bbp(df["close"], params.get("length",20)).apply(normalize)
-            elif kind=="williamsr": sonuc[output] = calculate_williamsr(df["high"], df["low"], df["close"], params.get("length",14)).apply(normalize)
-            elif kind=="diosc": sonuc[output] = calculate_diosc(df["high"], df["low"], df["close"], params.get("length",14)).apply(normalize)
-            print(f"🔍 [DEBUG] {kind} output head:", sonuc[output].head())
+                    for kaynak, hedef in output.items():
+                        sonuc[hedef] = cikti[kaynak].apply(normalize)
+                        print(f"🔍 [DEBUG] macd {kaynak} → {hedef} sample:", sonuc[hedef].head(20))
+            elif kind == "bbp_manual":
+                sonuc[output] = calculate_bbp(df["close"], params.get("length",20)).apply(normalize)
+            elif kind == "williamsr":
+                sonuc[output] = calculate_williamsr(df["high"], df["low"], df["close"], params.get("length",14)).apply(normalize)
+            elif kind == "diosc":
+                sonuc[output] = calculate_diosc(df["high"], df["low"], df["close"], params.get("length",14)).apply(normalize)
+
+            # 🔍 Tüm indikatörler için 20 satır debug
+            print(f"🔍 [DEBUG] {kind} output sample (20 rows):", sonuc[output].head(20))
+
         except Exception as e:
             print(f"❌ {kind} hata: {e}")
             sonuc[output] = pd.Series(index=df.index, dtype=float).apply(normalize)
     return sonuc
+
 
 def yukle_ayarlar(path="data/indicators.yaml"):
     with open(path,"r",encoding="utf-8") as f: return yaml.safe_load(f)["indikatorler"]
@@ -117,7 +133,7 @@ def main():
     df_close = pd.read_excel(xls, "Kapanış", index_col=0)
     df_high  = pd.read_excel(xls, "Yüksek", index_col=0)
     df_low   = pd.read_excel(xls, "Düşük", index_col=0)
-    print("🔍 [DEBUG] Ham df_close head:", df_close.head())
+    print("🔍 [DEBUG] Ham df_close head (20 rows):", df_close.head(20))
 
     master_dates = pd.to_datetime(df_close.index, dayfirst=True, errors="coerce")
     semboller = pd.read_csv("data/dates.csv", encoding="utf-8").iloc[:, 1].dropna().unique().tolist()
@@ -131,7 +147,9 @@ def main():
                 "high":  clean_numeric_series(df_high.get(sembol)),
                 "low":   clean_numeric_series(df_low.get(sembol))
             }, index=df_close.index).sort_index()
-            print(f"🔍 [DEBUG] df_symbol head for {sembol}:", df_symbol.head())
+
+            # 🔍 Artık 20 satır gösteriyoruz
+            print(f"🔍 [DEBUG] df_symbol sample (20 rows) for {sembol}:", df_symbol.head(20))
 
             sonuc = hesapla_indikatorler(df_symbol, yukle_ayarlar())
             if not sonuc:
@@ -139,7 +157,7 @@ def main():
 
             for sayfa_adi, ser_out in sonuc.items():
                 aligned = align_to_master(ser_out.to_frame(sembol), master_dates)
-                print(f"🔍 [DEBUG] aligned head for {sayfa_adi}/{sembol}:", aligned.head())
+                print(f"🔍 [DEBUG] aligned sample (20 rows) for {sayfa_adi}/{sembol}:", aligned.head(20))
                 aligned.index = aligned.index.strftime("%d.%m.%Y")
                 if sayfa_adi not in sayfa_df:
                     sayfa_df[sayfa_adi] = {}
@@ -153,7 +171,7 @@ def main():
             df_out = pd.concat(sembol_dict.values(), axis=1)
             df_out.columns = list(sembol_dict.keys())
             df_out.index.name = "Tarih"
-            print(f"🔍 [DEBUG] Final df_out head for {sayfa_adi}:", df_out.head())
+            print(f"🔍 [DEBUG] Final df_out sample (20 rows) for {sayfa_adi}:", df_out.head(20))
             df_out.to_excel(writer, sheet_name=sayfa_adi)
 
     print("✅ indicators.xlsx oluşturuldu")
