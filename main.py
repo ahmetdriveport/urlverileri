@@ -28,7 +28,9 @@ def fiyat_hacim_tek_gun(g,a,y):
         r=requests.get(f"{BASE_URL}?gun={g}&ay={a}&yil={y}&tip=Hisse",
                        headers={'User-Agent':'Mozilla/5.0'},timeout=10)
         r.raise_for_status()
-    except: return []
+    except Exception as e:
+        print(f"Hata: {e}")   # ❌ URL ve tarih basılmıyor
+        return []
     soup=BeautifulSoup(r.text,'html.parser'); t=soup.find('table')
     if not t: return []
     ts=f"{g:02d}.{a:02d}.{y}"
