@@ -1,9 +1,8 @@
-import requests, pandas as pd, numpy as np
-from io import BytesIO
-from datetime import datetime
-import pytz, os
+import requests,pandas as pd,numpy as np
+from io import BytesIO; from datetime import datetime
+import pytz,os
 
-BASE_URL = os.environ.get("PDFK")
+BASE_URL=os.environ.get("PDFK")
 
 def parse_excel(url,tarih,hedef):
     r=requests.get(url,timeout=15); r.raise_for_status()
@@ -37,39 +36,27 @@ def main():
     df_dates=pd.read_csv("data/dates.csv",encoding="utf-8")
     tarih_list=df_dates.iloc[:,0].dropna().astype(str).str.strip().tolist()
     codes=df_dates.iloc[:,1].dropna().astype(str).str.strip().str.upper().tolist()
-    secilen=secili(tarih_list,10)
-
     dfs=[]
-    for d in secilen:
+    for d in secili(tarih_list,10):
         url=f"{BASE_URL}/ZRY Göstergeler-{datetime.strptime(d,'%d.%m.%Y').strftime('%Y_%m_%d')}.xlsx"
         try:
             df=parse_excel(url,d,set(codes))
             if not df.empty: dfs.append(df)
-        except Exception as e: print("Excel okunamadı:",url,"hata:",e)
-
+        except Exception as e: print(f"Excel okunamadı ({d}): hata: {e}")
     if not dfs: raise ValueError("❌ Hiç veri bulunamadı, pdfk_vert.xlsx oluşturulamadı.")
     df_final=pd.concat(dfs,ignore_index=True)
     df_final["Hisse_Kodu"]=df_final["Hisse_Kodu"].str.strip().str.upper()
     df_final=df_final[df_final["Hisse_Kodu"].isin(set(codes))].drop_duplicates(subset=["Tarih","Hisse_Kodu"])
-
-    oz=pd.to_numeric(df_final["Ozkaynak"],errors="coerce")*1_000_000
-    se=pd.to_numeric(df_final["Sermaye"],errors="coerce")*1_000_000
-    ak=pd.to_numeric(df_final["Aktifler"],errors="coerce")*1_000_000
-    nb=pd.to_numeric(df_final["Netborc"],errors="coerce")*1_000_000
-    yk=pd.to_numeric(df_final["Yillik_Kar"],errors="coerce")*1_000_000
-
+    oz,se,ak,nb,yk=[pd.to_numeric(df_final[c],errors="coerce")*1_000_000 for c in ["Ozkaynak","Sermaye","Aktifler","Netborc","Yillik_Kar"]]
     df_final["Pd_Carpan"]=np.where(oz!=0,se/oz,np.nan).round(5)
     df_final["Fk_Carpan"]=np.where(yk!=0,se/yk,np.nan).round(5)
     df_final["Ozkarlilik"]=np.where(oz!=0,(yk/oz)*100,np.nan).round(2)
     df_final["Aktifkarlilik"]=np.where(ak!=0,(yk/ak)*100,np.nan).round(2)
-
     for col,ser in zip(["Ozkaynak","Sermaye","Aktifler","Netborc","Yillik_Kar"],[oz,se,ak,nb,yk]):
         df_final[col]=ser.apply(lambda x:"" if pd.isna(x) else str(int(x)))
-
     df_final["Tarih"]=pd.to_datetime(df_final["Tarih"],format="%d.%m.%Y",errors="coerce")
     df_final=df_final.sort_values(by=["Tarih","Hisse_Kodu"],ascending=[False,True]).reset_index(drop=True)
     df_final["Tarih"]=df_final["Tarih"].dt.strftime("%d.%m.%Y")
-
     df_final.to_excel("pdfk_vert.xlsx",index=False,engine="openpyxl")
     print("✅ Artifact oluşturuldu: pdfk_vert.xlsx")
 
