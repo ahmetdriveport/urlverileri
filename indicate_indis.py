@@ -14,7 +14,9 @@ def align_to_master(df, master_dates, tarih_kolon="Tarih"):
     df = df.reindex(master_sorted)
     for col in df.columns:
         ser = df[col]; first_valid = ser.first_valid_index()
-        if first_valid is not None: ser.loc[ser.index < first_valid] = pd.NA; df[col] = ser
+        if first_valid is not None:
+            ser.loc[ser.index < first_valid] = pd.NA
+            df[col] = ser
     return df
 
 def normalize(x): 
@@ -28,7 +30,9 @@ def ema_with_sma_start(series,length):
     ema=pd.Series(index=s.index,dtype=float); valid=s.dropna()
     sma_start=valid.iloc[:length].mean(); ema.loc[valid.index[length-1]]=sma_start
     alpha=2/(length+1); prev=sma_start
-    for idx in valid.index[length:]: prev=alpha*valid.loc[idx]+(1-alpha)*prev; ema.loc[idx]=prev
+    for idx in valid.index[length:]:
+        prev=alpha*valid.loc[idx]+(1-alpha)*prev
+        ema.loc[idx]=prev
     return ema
 
 def calculate_rsi(series,period=14):
@@ -48,7 +52,8 @@ def calculate_bbp(series,length=20,mult=2):
     s=pd.to_numeric(series,errors="coerce")
     ma=s.rolling(window=length,min_periods=length).mean()
     std=s.rolling(window=length,min_periods=length).std(ddof=0)
-    up,lo=ma+mult*std,ma-mult*std; return (s-lo)/(up-lo)
+    up,lo=ma+mult*std,ma-mult*std
+    return (s-lo)/(up-lo)
 
 def calculate_williamsr(h,l,c,length=14):
     h,l,c=pd.to_numeric(h,errors="coerce"),pd.to_numeric(l,errors="coerce"),pd.to_numeric(c,errors="coerce")
@@ -62,7 +67,9 @@ def calculate_diosc(h,l,c,length=14):
     up,down=h.diff(),-l.diff()
     plus=np.where((up>down)&(up>0),up,0.0); minus=np.where((down>up)&(down>0),down,0.0)
     tr=pd.concat([h-l,(h-c.shift()).abs(),(l-c.shift()).abs()],axis=1).max(axis=1)
-    trr=rma(tr,length); p=100*rma(pd.Series(plus,index=h.index),length)/trr; m=100*rma(pd.Series(minus,index=h.index),length)/trr
+    trr=rma(tr,length)
+    p=100*rma(pd.Series(plus,index=h.index),length)/trr
+    m=100*rma(pd.Series(minus,index=h.index),length)/trr
     return (p-m)
 
 def hesapla_indikatorler(df,tanimlar):
@@ -79,15 +86,18 @@ def hesapla_indikatorler(df,tanimlar):
             elif k=="bbp_manual": sonuc[o]=calculate_bbp(df["close"],p.get("length",20)).apply(normalize)
             elif k=="williamsr": sonuc[o]=calculate_williamsr(df["high"],df["low"],df["close"],p.get("length",14)).apply(normalize)
             elif k=="diosc": sonuc[o]=calculate_diosc(df["high"],df["low"],df["close"],p.get("length",14)).apply(normalize)
-        except: sonuc[o]=pd.Series(index=df.index,dtype=float).apply(normalize)
+        except:
+            sonuc[o]=pd.Series(index=df.index,dtype=float).apply(normalize)
     return sonuc
 
 def yukle_ayarlar(path="data/indicators.yaml"):
-    with open(path,"r",encoding="utf-8") as f: return yaml.safe_load(f)["indikatorler"]
+    with open(path,"r",encoding="utf-8") as f:
+        return yaml.safe_load(f)["indikatorler"]
 
 def main():
     try:
-        xls = pd.ExcelFile("endeks.xlsx")
+        # Artık main_indis_fiyat.xlsx dosyasını okuyacak
+        xls = pd.ExcelFile("main_indis_fiyat.xlsx")
         dfc = pd.read_excel(xls, "Kapanış", index_col=0)
         dfh = pd.read_excel(xls, "Yüksek", index_col=0)
         dfl = pd.read_excel(xls, "Düşük", index_col=0)
@@ -127,8 +137,4 @@ def main():
 
         print("✅ indis_indicators.xlsx oluşturuldu")
     except:
-        print("❌ indis_indicators.xlsx oluşturulamadı")
-
-
-if __name__ == "__main__":
-    main()
+        print("❌ indis_indicators.xlsx oluştur
