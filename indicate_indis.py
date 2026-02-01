@@ -99,9 +99,9 @@ def main():
         print("▶️ main_indis_fiyat.xlsx okunuyor...")   # DEBUG
 
         xls = pd.ExcelFile("main_indis_fiyat.xlsx")
-        dfc = pd.read_excel(xls, "Kapanış", index_col=0)
-        dfh = pd.read_excel(xls, "Yüksek", index_col=0)
-        dfl = pd.read_excel(xls, "Düşük", index_col=0)
+        dfc = pd.read_excel(xls, "Kapanis", index_col=0)
+        dfh = pd.read_excel(xls, "Yuksek", index_col=0)
+        dfl = pd.read_excel(xls, "Dusuk", index_col=0)
 
         print("✅ Excel sayfaları yüklendi")   # DEBUG
 
