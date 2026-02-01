@@ -36,4 +36,3 @@ df = pd.read_csv("data/dates.csv", encoding="utf-8")
 csv_tarihleri = df["Tarih"].tolist()
 
 secili_tarihler = secili_tarihleri_bul(csv_tarihleri, hedef_gun_sayisi=150)
-print(secili_tarihler)
