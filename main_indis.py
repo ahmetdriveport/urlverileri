@@ -19,13 +19,16 @@ def kapanis_tek_gun(g,a,y):
     except:return []
     t=BeautifulSoup(r.text,"html.parser").find("table")
     if not t:return []
-    h=[th.get_text(strip=True) for th in t.find_all("tr")[0].find_all("td")]
+    headers=[h.get_text(strip=True) for h in t.find_all("tr")[0].find_all(["th","td"])]
     ts=f"{g:02d}.{a:02d}.{y}";rows=[]
     for tr in t.find_all("tr")[1:]:
         c=[td.get_text(strip=True) for td in tr.find_all("td")]
-        if len(c)!=len(h):continue
-        r=dict(zip(h,c))
-        rows.append({"Tarih":ts,"Endeks":r.get("Menkul Adı"),"Kapanış":temizle_sayi(r.get("Son")),"Yüksek":temizle_sayi(r.get("Yüksek")),"Düşük":temizle_sayi(r.get("Düşük"))})
+        if len(c)!=len(headers):continue
+        r=dict(zip(headers,c))
+        rows.append({"Tarih":ts,"Endeks":r.get("Menkul Adı") or r.get("Endeks"),
+                     "Kapanış":temizle_sayi(r.get("Son")),
+                     "Yüksek":temizle_sayi(r.get("Yüksek")),
+                     "Düşük":temizle_sayi(r.get("Düşük"))})
     return rows
 
 try:
