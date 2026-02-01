@@ -1,0 +1,36 @@
+name: Main Indis
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 15 * * *"
+
+jobs:
+  run-main-indis:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run main_indis.py
+        env:
+          MAININDIS: ${{ secrets.MAININDIS }}
+        run: |
+          python main_indis.py   # çıktı: endeks.xlsx
+
+      - name: Upload Endeks Excel
+        uses: actions/upload-artifact@v4
+        with:
+          name: endeks-results
+          path: endeks.xlsx
+          retention-days: 3
