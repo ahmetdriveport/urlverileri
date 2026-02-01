@@ -137,4 +137,4 @@ def main():
 
         print("✅ indis_indicators.xlsx oluşturuldu")
     except:
-        print("❌ indis_indicators.xlsx oluştur")
+        print("❌ indis_indicators.xlsx oluşturulamadı")
