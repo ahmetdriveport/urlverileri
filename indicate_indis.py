@@ -96,22 +96,30 @@ def yukle_ayarlar(path="data/indicators.yaml"):
 
 def main():
     try:
-        # Artık main_indis_fiyat.xlsx dosyasını okuyacak
+        print("▶️ main_indis_fiyat.xlsx okunuyor...")   # DEBUG
+
         xls = pd.ExcelFile("main_indis_fiyat.xlsx")
         dfc = pd.read_excel(xls, "Kapanış", index_col=0)
         dfh = pd.read_excel(xls, "Yüksek", index_col=0)
         dfl = pd.read_excel(xls, "Düşük", index_col=0)
+
+        print("✅ Excel sayfaları yüklendi")   # DEBUG
 
         dfc.index = pd.to_datetime(dfc.index, dayfirst=True, errors="raise")
         dfh.index = pd.to_datetime(dfh.index, dayfirst=True, errors="raise")
         dfl.index = pd.to_datetime(dfl.index, dayfirst=True, errors="raise")
         master = dfc.index.sort_values(ascending=True)
 
+        print("✅ Tarih indeksleri dönüştürüldü")   # DEBUG
+
         endeksler = pd.read_csv("data/dates.csv", encoding="utf-8").iloc[:, 2].dropna().unique().tolist()
+        print(f"📊 Endeks listesi: {endeksler}")   # DEBUG
+
         sayfa_df = {}
 
         for e in endeksler:
             try:
+                print(f"➡️ Endeks işleniyor: {e}")   # DEBUG
                 dfs = pd.DataFrame({
                     "close": clean_numeric_series(dfc.get(e)),
                     "high": clean_numeric_series(dfh.get(e)),
@@ -124,8 +132,8 @@ def main():
                     if sa not in sayfa_df:
                         sayfa_df[sa] = {}
                     sayfa_df[sa][e] = al[e]
-            except:
-                pass
+            except Exception as ex:
+                print(f"⚠️ Endeks {e} hata verdi: {ex}")   # DEBUG
 
         with pd.ExcelWriter("indis_indicators.xlsx", engine="openpyxl", mode="w") as w:
             for sa, sd in sayfa_df.items():
@@ -136,5 +144,5 @@ def main():
                 df_out.to_excel(w, sheet_name=sa)
 
         print("✅ indis_indicators.xlsx oluşturuldu")
-    except:
-        print("❌ indis_indicators.xlsx oluşturulamadı")
+    except Exception as e:
+        print("❌ indis_indicators.xlsx oluşturulamadı:", e)
