@@ -26,11 +26,11 @@ jobs:
         env:
           MAININDIS: ${{ secrets.MAININDIS }}
         run: |
-          python main_indis.py   # çıktı: main_indis_fiyat.xlsx
+          python main_indis.py
 
       - name: Run indicate_indis.py
         run: |
-          python indicate_indis.py   # çıktı: indis_indicators.xlsx
+          python indicate_indis.py
 
       - name: Upload Main Indis Fiyat Excel
         uses: actions/upload-artifact@v4
