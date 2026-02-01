@@ -26,17 +26,17 @@ jobs:
         env:
           MAININDIS: ${{ secrets.MAININDIS }}
         run: |
-          python main_indis.py   # çıktı: endeks.xlsx
+          python main_indis.py   # çıktı: main_indis_fiyat.xlsx
 
       - name: Run indicate_indis.py
         run: |
           python indicate_indis.py   # çıktı: indis_indicators.xlsx
 
-      - name: Upload Endeks Excel
+      - name: Upload Main Indis Fiyat Excel
         uses: actions/upload-artifact@v4
         with:
-          name: endeks-results
-          path: endeks.xlsx
+          name: main-indis-fiyat-results
+          path: main_indis_fiyat.xlsx
           retention-days: 3
 
       - name: Upload Indis Indicators Excel
