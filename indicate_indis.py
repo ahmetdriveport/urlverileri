@@ -146,3 +146,6 @@ def main():
         print("✅ indis_indicators.xlsx oluşturuldu")
     except Exception as e:
         print("❌ indis_indicators.xlsx oluşturulamadı:", e)
+
+if __name__ == "__main__":
+    main()
