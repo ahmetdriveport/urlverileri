@@ -30,25 +30,35 @@ def kapanis_tek_gun(g, a, y):
         r.raise_for_status()
     except:
         return []
+
     soup = BeautifulSoup(r.text, "html.parser")
     t = soup.find("table")
     if not t:
         return []
+
+    # Başlıkları al
+    headers = [th.get_text(strip=True) for th in t.find_all("tr")[0].find_all("td")]
     ts = f"{g:02d}.{a:02d}.{y}"
-    return [
-        {
-            "Tarih": ts,
-            "Endeks": c[0],
-            "Kapanış": temizle_sayi(c[1]),
-            "Yüksek": temizle_sayi(c[2]),
-            "Düşük": temizle_sayi(c[3]),
-        }
-        for c in (
-            [td.get_text(strip=True) for td in tr.find_all("td")]
-            for tr in t.find_all("tr")[1:]
-        )
-        if len(c) >= 4 and temizle_sayi(c[1])
-    ]
+
+    rows = []
+    for tr in t.find_all("tr")[1:]:
+        cells = [td.get_text(strip=True) for td in tr.find_all("td")]
+        if len(cells) != len(headers):
+            continue
+        row = dict(zip(headers, cells))
+
+        try:
+            rows.append({
+                "Tarih": ts,
+                "Endeks": row.get("Menkul Adı"),
+                "Kapanış": temizle_sayi(row.get("Son")),
+                "Yüksek": temizle_sayi(row.get("Yüksek")),
+                "Düşük": temizle_sayi(row.get("Düşük")),
+            })
+        except:
+            continue
+
+    return rows
 
 try:
     df_csv = pd.read_csv("data/dates.csv", encoding="utf-8")
@@ -116,5 +126,5 @@ try:
             haftalik.index = haftalik.index.strftime("%d.%m.%Y")
             haftalik.to_excel(w, sheet_name="Haftalik_Kapanis")
     print("✅ main_indis_fiyat.xlsx oluşturuldu")
-except:
-    print("❌ main_indis_fiyat.xlsx oluşturulamadı")
+except Exception as e:
+    print("❌ main_indis_fiyat.xlsx oluşturulamadı:", e)
