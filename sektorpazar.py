@@ -60,5 +60,6 @@ for kod in hisse_list:
     res.append([kod,pazar,endeks,sektor,oran,lot])
 
 artifact=pd.DataFrame(res,columns=["Hisse","Pazar","Endeks","Sektör","Dolaşım Oranı","Dolaşım Lotu"])
-artifact.to_excel("artifact.xlsx",index=False,engine="openpyxl")
-print("✅ artifact.xlsx oluşturuldu.")
+artifact.to_excel("sektorpazar.xlsx", index=False, engine="openpyxl")
+print("✅ sektorpazar.xlsx oluşturuldu.")
+
