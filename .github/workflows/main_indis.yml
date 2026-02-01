@@ -28,9 +28,20 @@ jobs:
         run: |
           python main_indis.py   # çıktı: endeks.xlsx
 
+      - name: Run indicate_indis.py
+        run: |
+          python indicate_indis.py   # çıktı: indis_indicators.xlsx
+
       - name: Upload Endeks Excel
         uses: actions/upload-artifact@v4
         with:
           name: endeks-results
           path: endeks.xlsx
+          retention-days: 3
+
+      - name: Upload Indis Indicators Excel
+        uses: actions/upload-artifact@v4
+        with:
+          name: indis-indicators-results
+          path: indis_indicators.xlsx
           retention-days: 3
