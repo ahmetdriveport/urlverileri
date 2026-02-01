@@ -14,7 +14,7 @@ def temizle_sayi(s):
 
 BASE_URL=json.loads(os.environ["MAININDIS"])["DATA_SOURCE_URL"]
 
-def cnn_kapanis_tek_gun(g,a,y):
+def kapanis_tek_gun(g,a,y):
     try:
         r=requests.get(f"{BASE_URL}&gun={g}&ay={a}&yil={y}",headers={'User-Agent':'Mozilla/5.0'},timeout=10)
         r.raise_for_status()
@@ -22,15 +22,15 @@ def cnn_kapanis_tek_gun(g,a,y):
     soup=BeautifulSoup(r.text,'html.parser'); t=soup.find('table')
     if not t: return []
     ts=f"{g:02d}.{a:02d}.{y}"
-    return [{"Tarih":ts,"Endeks":c[0],"Kapanış":temizle_sayi(c[1])}
+    return [{"Tarih":ts,"Endeks":c[0],"Kapanış":temizle_sayi(c[1]),"Yüksek":temizle_sayi(c[2]),"Düşük":temizle_sayi(c[3])}
             for c in ([td.get_text(strip=True) for td in tr.find_all('td')] for tr in t.find_all('tr')[1:])
-            if len(c)>=2 and temizle_sayi(c[1])]
+            if len(c)>=4 and temizle_sayi(c[1])]
 
 try:
     df_csv=pd.read_csv("data/dates.csv",encoding="utf-8")
     secili=list(reversed(secili_tarihleri_bul(df_csv["Tarih"].dropna().tolist(),150)))
     takip=df_csv.iloc[:,2].dropna().unique().tolist()
-    tum=[v for t in secili for v in cnn_kapanis_tek_gun(*map(int,t.split(".")))]
+    tum=[v for t in secili for v in kapanis_tek_gun(*map(int,t.split(".")))]
     vg=defaultdict(list); [vg[v["Tarih"]].append(v) for v in tum]
     ilk={}; [ilk.setdefault(v["Endeks"],pd.to_datetime(v["Tarih"],dayfirst=True)) for v in tum]
     endeksler=sorted({v["Endeks"] for v in tum}); onceki={}; final=[]
@@ -59,11 +59,14 @@ try:
         return p.sort_index(ascending=False).sort_index(axis=1)
 
     kapanis=pivotla(df,"Kapanış",takip,secili)
+    yuksek=pivotla(df,"Yüksek",takip,secili)
+    dusuk=pivotla(df,"Düşük",takip,secili)
     haftalik=pivotla(df,"Kapanış",takip,secili,haftalik=True)
 
     with pd.ExcelWriter("endeks.xlsx",engine="openpyxl") as w:
-        kapanis.index=kapanis.index.strftime("%d.%m.%Y"); kapanis.to_excel(w,sheet_name="Kapanis")
+        for name,tab in {"Kapanis":kapanis,"Yuksek":yuksek,"Dusuk":dusuk}.items():
+            tab.index=tab.index.strftime("%d.%m.%Y"); tab.to_excel(w,sheet_name=name)
         if not haftalik.empty:
             haftalik.index=haftalik.index.strftime("%d.%m.%Y"); haftalik.to_excel(w,sheet_name="Haftalik_Kapanis")
     print("✅ endeks.xlsx oluşturuldu")
-except Exception as e: print("❌ Hata:",e)
+except: print("❌ endeks.xlsx oluşturulamadı")
