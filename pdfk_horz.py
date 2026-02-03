@@ -26,7 +26,9 @@ def create_pivot(df,col,dtype="int"):
     last=p.tail(1)
     latest_values[col]={"Tarih":last.index[0].strftime("%d.%m.%Y"),"Veriler":last.iloc[0].to_dict()}
     out=p.reset_index().rename(columns={"index":"Tarih"})
-    out["Tarih"]=pd.to_datetime(out["Tarih"],errors="coerce").dt.strftime("%d.%m.%Y")
+    out["Tarih"]=pd.to_datetime(out["Tarih"],errors="coerce")
+    out=out.sort_values("Tarih",ascending=False)
+    out["Tarih"]=out["Tarih"].dt.strftime("%d.%m.%Y")
     pivot_tables[col]=out
 
 for col,dtype in [
