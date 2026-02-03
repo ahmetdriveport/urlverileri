@@ -45,3 +45,14 @@ jobs:
           name: indis-indicators-results
           path: indis_indicators.xlsx
           retention-days: 3
+
+      - name: Run main_indis_profit.py
+        run: |
+          python main_indis_profit.py   # çıktı: indis_profit.xlsx
+
+      - name: Upload Indis Profit Excel
+        uses: actions/upload-artifact@v4
+        with:
+          name: main-indis-profit-results
+          path: indis_profit.xlsx
+          retention-days: 3
