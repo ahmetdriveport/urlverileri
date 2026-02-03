@@ -1,12 +1,17 @@
 import pandas as pd, requests, os, json
 from io import BytesIO
 from bs4 import BeautifulSoup
+from datetime import datetime
 
 urls=json.loads(os.environ.get("SEKTORPAZAR"))
 url_indices,url_markets,url_fd=urls["url1"],urls["url2"],urls["url3"]
 
 df_dates=pd.read_csv("data/dates.csv")
 hisse_list=df_dates["Hisse"].dropna().str.strip().unique()
+today=datetime.now().date()
+tarih_list=pd.to_datetime(df_dates.iloc[:,0],dayfirst=True,errors="coerce").dropna().dt.date
+secili_tarih=max([d for d in tarih_list if d<=today])
+tarih_str=secili_tarih.strftime("%d.%m.%Y")
 
 df_raw=pd.read_excel(BytesIO(requests.get(url_indices,timeout=30).content),header=None)
 endeks_dict={}; cur=None
@@ -57,9 +62,8 @@ for kod in hisse_list:
     fd=df_fd[df_fd["Borsa Kodu"]==kod]
     oran=fd.iloc[0]["Fiili Dolaşımdaki Pay Oranı(%)"] if not fd.empty else ""
     lot=fd.iloc[0]["Fiili Dolaşımdaki Pay Tutarı(TL)"] if not fd.empty else ""
-    res.append([kod,pazar,endeks,sektor,oran,lot])
+    res.append([tarih_str,kod,pazar,endeks,sektor,oran,lot])
 
-artifact=pd.DataFrame(res,columns=["Hisse","Pazar","Endeks","Sektör","Dolaşım Oranı","Dolaşım Lotu"])
-artifact.to_excel("sektorpazar.xlsx", index=False, engine="openpyxl")
+artifact=pd.DataFrame(res,columns=["Tarih","Hisse","Pazar","Endeks","Sektör","Dolaşım Oranı","Dolaşım Lotu"])
+artifact.to_excel("sektorpazar.xlsx",index=False,engine="openpyxl")
 print("✅ sektorpazar.xlsx oluşturuldu.")
-
