@@ -35,7 +35,7 @@ def fiyat_hacim_tek_gun(g,a,y):
 
 try:
     df_csv=pd.read_csv("data/dates.csv",encoding="utf-8")
-    secili=list(reversed(secili_tarihleri_bul(df_csv["Tarih"].dropna().tolist(),150)))
+    secili=secili_tarihleri_bul(df_csv["Tarih"].dropna().tolist())
     takip=df_csv.iloc[:,1].dropna().unique().tolist()
     tum=[v for t in secili for v in fiyat_hacim_tek_gun(*map(int,t.split(".")))]
     vg=defaultdict(list); [vg[v["Tarih"]].append(v) for v in tum]
@@ -71,4 +71,5 @@ try:
         if not haftalik.empty:
             haftalik.index=haftalik.index.strftime("%d.%m.%Y"); haftalik.to_excel(w,sheet_name="Haftalik_Kapanis")
     print("✅ fiyat.xlsx oluşturuldu")
-except Exception as e: print("❌ Hata:",e)
+except Exception:
+    print("❌ fiyat.xlsx oluşturulamadı")
