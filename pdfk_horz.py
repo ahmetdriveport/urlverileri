@@ -1,7 +1,10 @@
 import pandas as pd, numpy as np, os
+from tarih_ayar import secili_tarihleri_bul 
 
 df_dates = pd.read_csv("data/dates.csv", encoding="utf-8")
 codes = df_dates.iloc[:,1].dropna().astype(str).str.strip().str.upper().tolist()
+tarih_list = df_dates.iloc[:,0].dropna().astype(str).str.strip().tolist()
+master_dates = secili_tarihleri_bul(tarih_list)
 
 if not os.path.exists("pdfk_vert.xlsx"):
     raise FileNotFoundError("❌ pdfk_vert.xlsx bulunamadı. Önce vert script çalışmalı.")
@@ -14,7 +17,9 @@ df_src["Tarih"] = pd.to_datetime(df_src["Tarih"].astype(str), format="%d.%m.%Y",
 latest_values, pivot_tables = {}, {}
 
 def create_pivot(df, col, dtype="int"):
-    p = pd.pivot_table(df, index="Tarih", columns="Hisse_Kodu", values=col, aggfunc="first").sort_index(ascending=False)
+    p = pd.pivot_table(df, index="Tarih", columns="Hisse_Kodu", values=col, aggfunc="first")
+    # master tarih listesine göre reindex
+    p = p.reindex(pd.to_datetime(master_dates, dayfirst=True))
     for c in codes:
         if c not in p.columns: 
             p[c] = np.nan
@@ -22,7 +27,7 @@ def create_pivot(df, col, dtype="int"):
     if dtype=="int": p = p.round().astype("Int64")
     elif dtype=="float2": p = p.round(2).astype(float)
     elif dtype=="float5": p = p.round(5).astype(float)
-    last = p.head(1)
+    last = p.tail(1)  # son tarih
     latest_values[col] = {"Tarih": last.index[0].strftime("%d.%m.%Y"), "Veriler": last.iloc[0].to_dict()}
     out = p.reset_index()
     out["Tarih"] = out["Tarih"].dt.strftime("%d.%m.%Y")
