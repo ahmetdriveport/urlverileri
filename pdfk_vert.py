@@ -1,6 +1,7 @@
 import requests,pandas as pd,numpy as np
 from io import BytesIO; from datetime import datetime
-import pytz,os
+import os
+from tarih_ayar import secili_tarihleri_bul  # tarih_ayar dosyasından alındı
 
 BASE_URL=os.environ.get("PDFK")
 
@@ -15,29 +16,16 @@ def parse_excel(url,tarih,hedef):
                      "Netborc":df.iat[j,14],"Yillik_Kar":df.iat[j,17]})
     return pd.DataFrame(rows)
 
-def bul_ilk_gun(lst):
-    today=datetime.now(pytz.timezone("Europe/Istanbul")).date()
-    tarihler=pd.to_datetime([x.strip() for x in lst if str(x).strip()],
-                            format="%d.%m.%Y",dayfirst=True,errors="coerce")
-    tarihler=[d.date() for d in tarihler if not pd.isna(d)]
-    return today if today in tarihler else max([d for d in tarihler if d<today],default=None)
-
-def sirali(lst,ilk,n):
-    s=pd.to_datetime(pd.Series(lst),format="%d.%m.%Y",dayfirst=True,errors="coerce").dropna()
-    try: idx=s[s.dt.date==ilk].index[0]
-    except: return []
-    return s.iloc[idx:idx+n].dt.date.tolist()
-
-def secili(lst,n=10):
-    ilk=bul_ilk_gun(lst)
-    return [] if not ilk else [d.strftime("%d.%m.%Y") for d in sirali(lst,ilk,n)]
-
 def main():
     df_dates=pd.read_csv("data/dates.csv",encoding="utf-8")
     tarih_list=df_dates.iloc[:,0].dropna().astype(str).str.strip().tolist()
     codes=df_dates.iloc[:,1].dropna().astype(str).str.strip().str.upper().tolist()
+
+    # tarih_ayar.py’den secili_tarihleri_bul çağrılıyor
+    secili=secili_tarihleri_bul(tarih_list)
+
     dfs=[]
-    for d in secili(tarih_list,10):
+    for d in secili:
         url=f"{BASE_URL}/ZRY Göstergeler-{datetime.strptime(d,'%d.%m.%Y').strftime('%Y_%m_%d')}.xlsx"
         try:
             df=parse_excel(url,d,set(codes))
