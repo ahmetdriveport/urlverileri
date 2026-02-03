@@ -1,4 +1,4 @@
-name: Main Fiyat
+name: Main
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
     - cron: "30 15 * * *"
 
 jobs:
-  run-main:
+  run-main-all:
     runs-on: ubuntu-latest
 
     steps:
@@ -22,6 +22,43 @@ jobs:
         run: |
           pip install -r requirements.txt
 
+      # --- Önce Main Indis tarafı ---
+      - name: Run main_indis.py
+        env:
+          MAININDIS: ${{ secrets.MAININDIS }}
+        run: |
+          python main_indis.py   # çıktı: main_indis_fiyat.xlsx
+
+      - name: Run indicate_indis.py
+        run: |
+          python indicate_indis.py   # çıktı: indis_indicators.xlsx
+
+      - name: Run main_indis_profit.py
+        run: |
+          python main_indis_profit.py   # çıktı: indis_profit.xlsx
+
+      - name: Upload Main Indis Fiyat Excel
+        uses: actions/upload-artifact@v4
+        with:
+          name: main-indis-fiyat-results
+          path: main_indis_fiyat.xlsx
+          retention-days: 3
+
+      - name: Upload Indis Indicators Excel
+        uses: actions/upload-artifact@v4
+        with:
+          name: indis-indicators-results
+          path: indis_indicators.xlsx
+          retention-days: 3
+
+      - name: Upload Indis Profit Excel
+        uses: actions/upload-artifact@v4
+        with:
+          name: main-indis-profit-results
+          path: indis_profit.xlsx
+          retention-days: 3
+
+      # --- Sonra Main Fiyat tarafı ---
       - name: Run main.py
         env:
           MAIN: ${{ secrets.MAIN }}
