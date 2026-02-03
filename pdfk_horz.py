@@ -1,43 +1,38 @@
 import pandas as pd, numpy as np, os
-from tarih_ayar import secili_tarihleri_bul 
+from tarih_ayar import secili_tarihleri_bul
 
-df_dates = pd.read_csv("data/dates.csv", encoding="utf-8")
-codes = df_dates.iloc[:,1].dropna().astype(str).str.strip().str.upper().tolist()
-tarih_list = df_dates.iloc[:,0].dropna().astype(str).str.strip().tolist()
-master_dates = secili_tarihleri_bul(tarih_list)
+df_dates=pd.read_csv("data/dates.csv",encoding="utf-8")
+codes=df_dates.iloc[:,1].dropna().astype(str).str.strip().str.upper().tolist()
+tarih_list=df_dates.iloc[:,0].dropna().astype(str).str.strip().tolist()
+master_dates=secili_tarihleri_bul(tarih_list)
 
-if not os.path.exists("pdfk_vert.xlsx"):
-    raise FileNotFoundError("❌ pdfk_vert.xlsx bulunamadı. Önce vert script çalışmalı.")
+if not os.path.exists("pdfk_vert.xlsx"): raise FileNotFoundError("❌ pdfk_vert.xlsx bulunamadı. Önce vert script çalışmalı.")
+df_src=pd.read_excel("pdfk_vert.xlsx",engine="openpyxl")
+df_src.columns=df_src.columns.str.strip()
+df_src["Hisse_Kodu"]=df_src["Hisse_Kodu"].astype(str).str.strip().str.upper()
+df_src["Tarih"]=pd.to_datetime(df_src["Tarih"].astype(str),format="%d.%m.%Y",errors="coerce")
 
-df_src = pd.read_excel("pdfk_vert.xlsx", engine="openpyxl")
-df_src.columns = df_src.columns.str.strip()
-df_src["Hisse_Kodu"] = df_src["Hisse_Kodu"].astype(str).str.strip().str.upper()
-df_src["Tarih"] = pd.to_datetime(df_src["Tarih"].astype(str), format="%d.%m.%Y", errors="coerce")
+latest_values,pivot_tables={},{}
 
-latest_values, pivot_tables = {}, {}
-
-def create_pivot(df, col, dtype="int"):
-    p = pd.pivot_table(df, index="Tarih", columns="Hisse_Kodu", values=col, aggfunc="first")
-    # master tarih listesine göre reindex
-    p = p.reindex(pd.to_datetime(master_dates, dayfirst=True))
+def create_pivot(df,col,dtype="int"):
+    p=pd.pivot_table(df,index="Tarih",columns="Hisse_Kodu",values=col,aggfunc="first")
+    p=p.reindex(pd.to_datetime(master_dates,dayfirst=True))
     for c in codes:
-        if c not in p.columns: 
-            p[c] = np.nan
-    p = p[codes].ffill().replace([np.inf,-np.inf], pd.NA)
-    if dtype=="int": p = p.round().astype("Int64")
-    elif dtype=="float2": p = p.round(2).astype(float)
-    elif dtype=="float5": p = p.round(5).astype(float)
-    last = p.tail(1)  # son tarih
-    latest_values[col] = {"Tarih": last.index[0].strftime("%d.%m.%Y"), "Veriler": last.iloc[0].to_dict()}
-    out = p.reset_index()
-    out["Tarih"] = out["Tarih"].dt.strftime("%d.%m.%Y")
-    pivot_tables[col] = out
+        if c not in p.columns: p[c]=np.nan
+    p=p[codes].ffill().replace([np.inf,-np.inf],pd.NA)
+    if dtype=="int": p=p.round().astype("Int64")
+    elif dtype=="float2": p=p.round(2).astype(float)
+    elif dtype=="float5": p=p.round(5).astype(float)
+    last=p.tail(1)
+    latest_values[col]={"Tarih":last.index[0].strftime("%d.%m.%Y"),"Veriler":last.iloc[0].to_dict()}
+    out=p.reset_index().rename(columns={"index":"Tarih"})
+    out["Tarih"]=pd.to_datetime(out["Tarih"],errors="coerce").dt.strftime("%d.%m.%Y")
+    pivot_tables[col]=out
 
 for col,dtype in [
     ("Ozkaynak","int"),("Sermaye","int"),("Aktifler","int"),("Netborc","int"),("Yillik_Kar","int"),
     ("Ozkarlilik","float2"),("Aktifkarlilik","float2"),("Pd_Carpan","float5"),("Fk_Carpan","float5")
-]: 
-    create_pivot(df_src,col,dtype)
+]: create_pivot(df_src,col,dtype)
 
 def safe(x): 
     return "" if pd.isna(x) or (isinstance(x,float) and np.isinf(x)) else (
@@ -45,17 +40,12 @@ def safe(x):
     )
 
 def latest_vertical():
-    rows=[]
-    last_date = latest_values["Pd_Carpan"]["Tarih"]
-    last_date_dt = pd.to_datetime(last_date, format="%d.%m.%Y", errors="coerce")
-
+    rows=[]; last_date=latest_values["Pd_Carpan"]["Tarih"]
+    last_date_dt=pd.to_datetime(last_date,format="%d.%m.%Y",errors="coerce")
     for h in codes:
-        subset = df_src[(df_src["Hisse_Kodu"] == h) & (df_src["Tarih"] == last_date_dt)]
-        msci_val = subset["Msci"].iloc[0] if not subset.empty else ""
-
-        rows.append([
-            last_date,  # Tarih
-            h,          # Hisse_Kodu
+        subset=df_src[(df_src["Hisse_Kodu"]==h)&(df_src["Tarih"]==last_date_dt)]
+        msci_val=subset["Msci"].iloc[0] if not subset.empty else ""
+        rows.append([last_date,h,
             safe(latest_values["Pd_Carpan"]["Veriler"].get(h,"")),
             safe(latest_values["Fk_Carpan"]["Veriler"].get(h,"")),
             msci_val,
@@ -65,13 +55,11 @@ def latest_vertical():
             safe(latest_values["Netborc"]["Veriler"].get(h,"")),
             safe(latest_values["Yillik_Kar"]["Veriler"].get(h,"")),
             safe(latest_values["Aktifkarlilik"]["Veriler"].get(h,"")),
-            safe(latest_values["Ozkarlilik"]["Veriler"].get(h,""))
-        ])
-    return pd.DataFrame(rows, columns=[
+            safe(latest_values["Ozkarlilik"]["Veriler"].get(h,""))])
+    return pd.DataFrame(rows,columns=[
         "Tarih","Hisse_Kodu","Pd_Carpan","Fk_Carpan","Msci",
         "Sermaye","Ozkaynak","Aktifler","Netborc","Yillik_Kar",
-        "Aktifkarlilik","Ozkarlilik"
-    ])
+        "Aktifkarlilik","Ozkarlilik"])
 
 artifact="pdfk_horz.xlsx"
 with pd.ExcelWriter(artifact,engine="openpyxl") as w:
