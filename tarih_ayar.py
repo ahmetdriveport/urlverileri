@@ -9,7 +9,11 @@ def secili_tarihleri_bul(csv_tarihleri, hedef=DEFAULT_GUN_SAYISI):
     tarihler = sorted(pd.to_datetime([str(x).strip() for x in csv_tarihleri if str(x).strip()],
                                      dayfirst=True, errors="coerce"))
     liste = [t.date() for t in tarihler if t.date() <= today]
-    if not liste: return []
+    if not liste: 
+        return []
     ilk = today if today in liste else max(liste)
     idx = liste.index(ilk)
-    return [d.strftime("%d.%m.%Y") for d in liste[idx:idx+hedef]]
+    # geçmişe doğru hedef kadar gün al
+    start = max(0, idx - hedef + 1)
+    secili = liste[start:idx+1]
+    return [d.strftime("%d.%m.%Y") for d in secili]
