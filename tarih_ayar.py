@@ -13,7 +13,6 @@ def secili_tarihleri_bul(csv_tarihleri, hedef=DEFAULT_GUN_SAYISI):
         return []
     ilk = today if today in liste else max(liste)
     idx = liste.index(ilk)
-    # geçmişe doğru hedef kadar gün al
     start = max(0, idx - hedef + 1)
     secili = liste[start:idx+1]
     return [d.strftime("%d.%m.%Y") for d in secili]
