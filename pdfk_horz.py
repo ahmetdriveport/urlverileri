@@ -51,21 +51,21 @@ def latest_vertical():
         rows.append([
             last_date,  # Tarih
             h,          # Hisse_Kodu
-            msci_val,   # Msci
+            safe(latest_values["Pd_Carpan"]["Veriler"].get(h,"")),
+            safe(latest_values["Fk_Carpan"]["Veriler"].get(h,"")),
+            msci_val,
             safe(latest_values["Sermaye"]["Veriler"].get(h,"")),
             safe(latest_values["Ozkaynak"]["Veriler"].get(h,"")),
             safe(latest_values["Aktifler"]["Veriler"].get(h,"")),
             safe(latest_values["Netborc"]["Veriler"].get(h,"")),
             safe(latest_values["Yillik_Kar"]["Veriler"].get(h,"")),
             safe(latest_values["Aktifkarlilik"]["Veriler"].get(h,"")),
-            safe(latest_values["Ozkarlilik"]["Veriler"].get(h,"")),
-            safe(latest_values["Pd_Carpan"]["Veriler"].get(h,"")),
-            safe(latest_values["Fk_Carpan"]["Veriler"].get(h,""))
+            safe(latest_values["Ozkarlilik"]["Veriler"].get(h,""))
         ])
     return pd.DataFrame(rows, columns=[
-        "Tarih","Hisse_Kodu","Msci",
+        "Tarih","Hisse_Kodu","Pd_Carpan","Fk_Carpan","Msci",
         "Sermaye","Ozkaynak","Aktifler","Netborc","Yillik_Kar",
-        "Aktifkarlilik","Ozkarlilik","Pd_Carpan","Fk_Carpan"
+        "Aktifkarlilik","Ozkarlilik"
     ])
 
 artifact="pdfk_horz.xlsx"
