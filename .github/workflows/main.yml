@@ -32,6 +32,10 @@ jobs:
         run: |
           python indicate.py   # çıktı: indicators.xlsx
 
+      - name: Run main_profit.py
+        run: |
+          python main_profit.py   # çıktı: profit.xlsx
+
       - name: Upload Fiyat Excel
         uses: actions/upload-artifact@v4
         with:
@@ -44,4 +48,11 @@ jobs:
         with:
           name: indicators-results
           path: indicators.xlsx
+          retention-days: 3
+
+      - name: Upload Profit Excel
+        uses: actions/upload-artifact@v4
+        with:
+          name: profit-results
+          path: profit.xlsx
           retention-days: 3
