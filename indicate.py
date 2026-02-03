@@ -105,8 +105,11 @@ def main():
         with pd.ExcelWriter("indicators.xlsx",engine="openpyxl",mode="w") as w:
             for sa,sd in sayfa_df.items():
                 df_out=pd.concat(sd.values(),axis=1); df_out.columns=list(sd.keys()); df_out.index.name="Tarih"; df_out=df_out.sort_index(ascending=False)
+                # Excel'e yazmadan önce tarih formatını gün.ay.yıl yap
+                df_out.index=pd.to_datetime(df_out.index,dayfirst=True,errors="coerce").strftime("%d.%m.%Y")
                 df_out.to_excel(w,sheet_name=sa)
         print("✅ indicators.xlsx oluşturuldu")
-    except Exception as e: print("❌ Hata:",e)
+    except Exception:
+        print("❌ indicators.xlsx oluşturulamadı")
 
 if __name__=="__main__": main()
