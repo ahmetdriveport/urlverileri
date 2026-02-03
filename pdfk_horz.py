@@ -62,8 +62,7 @@ def latest_vertical():
             safe(latest_values["Sermaye"]["Veriler"].get(h,""))
         ])
     return pd.DataFrame(rows, columns=[
-        "Hisse_Kodu","Tarih","Msci","Pd_Carpan","Fk_Carpan","Aktifkarlilik","Ozkarlilik",
-        "Ozkaynak","Aktifler","Netborc","Yillik_Kar","Sermaye"
+        "Tarih","Hisse_Kodu","Msci","Sermaye","Ozkaynak","Aktifler","Netborc","Yillik_Kar","Aktifkarlilik","Ozkarlilik","Pd_Carpan","Fk_Carpan"
     ])
 
 artifact="pdfk_horz.xlsx"
