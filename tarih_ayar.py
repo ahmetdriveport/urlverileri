@@ -2,7 +2,7 @@ import pandas as pd
 from datetime import datetime
 import pytz
 
-DEFAULT_GUN_SAYISI = 150  # seçilecek gün sayısı buradan kontrol edilir
+DEFAULT_GUN_SAYISI = 150
 
 def secili_tarihleri_bul(csv_tarihleri, hedef=DEFAULT_GUN_SAYISI):
     today = datetime.now(pytz.timezone("Europe/Istanbul")).date()
