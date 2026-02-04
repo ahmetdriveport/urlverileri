@@ -1,95 +1,68 @@
-name: Main
+name: Download Multiple Artifacts
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "30 15 * * *"
 
 jobs:
-  run-main-all:
+  download-and-upload:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repo
+      - name: Checkout Repo B
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Download latest artifacts by name
+        run: |
+          curl -L \
+            -H "Authorization: Bearer ${{ secrets.PUBLICTOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/ahmetdriveport/urlverileri/actions/artifacts \
+            -o artifacts.json
+
+          mkdir -p ./downloaded_artifacts
+
+          for NAME in sektorpazar-excel vert-pdfk-excel horz-pdfk-excel \
+                     main-indis-fiyat-results indis-indicators-results \
+                     main-indis-profit-results profit-results \
+                     fiyat-results indicators-results pivot-gaijin-excel; do
+            echo "Checking latest artifact for $NAME"
+            ID=$(jq -r --arg NAME "$NAME" '.artifacts | map(select(.name==$NAME)) | sort_by(.created_at) | last | .id' artifacts.json)
+
+            if [ "$ID" != "null" ]; then
+              curl -L \
+                -H "Authorization: Bearer ${{ secrets.PUBLICTOKEN }}" \
+                -H "Accept: application/vnd.github+json" \
+                https://api.github.com/repos/ahmetdriveport/urlverileri/actions/artifacts/$ID/zip \
+                -o artifact_$NAME.zip
+
+              unzip -o artifact_$NAME.zip -d ./downloaded_artifacts/$NAME
+            else
+              echo "No artifact found for $NAME"
+            fi
+          done
+
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          pip install pandas gspread google-auth openpyxl google-api-python-client
 
-      # --- Önce Main Indis tarafı ---
-      - name: Run main_indis.py
+      - name: Create Google Credentials file
         env:
-          MAININDIS: ${{ secrets.MAININDIS }}
+          CREDENTIALS: ${{ secrets.CREDENTIALS }}
         run: |
-          python main_indis.py   # çıktı: main_indis_fiyat.xlsx
+          python - << 'PY'
+          import os, base64
+          data = os.environ["CREDENTIALS"]
+          decoded = base64.b64decode(data).decode("utf-8")
+          with open("GOOGLE_CREDENTIALS_JSON","w",encoding="utf-8") as f:
+              f.write(decoded)
+          print("✅ GOOGLE_CREDENTIALS_JSON oluşturuldu.")
+          PY
 
-      - name: Run indicate_indis.py
+      - name: Run hisse_fiyat_indikator.py
         run: |
-          python indicate_indis.py   # çıktı: indis_indicators.xlsx
-
-      - name: Run main_indis_profit.py
-        run: |
-          python main_indis_profit.py   # çıktı: indis_profit.xlsx
-
-      - name: Upload Main Indis Fiyat Excel
-        uses: actions/upload-artifact@v4
-        with:
-          name: main-indis-fiyat-results
-          path: main_indis_fiyat.xlsx
-          retention-days: 3
-
-      - name: Upload Indis Indicators Excel
-        uses: actions/upload-artifact@v4
-        with:
-          name: indis-indicators-results
-          path: indis_indicators.xlsx
-          retention-days: 3
-
-      - name: Upload Indis Profit Excel
-        uses: actions/upload-artifact@v4
-        with:
-          name: main-indis-profit-results
-          path: indis_profit.xlsx
-          retention-days: 3
-
-      # --- Sonra Main Fiyat tarafı ---
-      - name: Run main.py
-        env:
-          MAIN: ${{ secrets.MAIN }}
-        run: |
-          python main.py   # çıktı: fiyat.xlsx
-
-      - name: Run indicate.py
-        run: |
-          python indicate.py   # çıktı: indicators.xlsx
-
-      - name: Run main_profit.py
-        run: |
-          python main_profit.py   # çıktı: profit.xlsx
-
-      - name: Upload Fiyat Excel
-        uses: actions/upload-artifact@v4
-        with:
-          name: fiyat-results
-          path: fiyat.xlsx
-          retention-days: 3
-
-      - name: Upload Indicators Excel
-        uses: actions/upload-artifact@v4
-        with:
-          name: indicators-results
-          path: indicators.xlsx
-          retention-days: 3
-
-      - name: Upload Profit Excel
-        uses: actions/upload-artifact@v4
-        with:
-          name: profit-results
-          path: profit.xlsx
-          retention-days: 3
+          python hisse_fiyat_indikator.py
