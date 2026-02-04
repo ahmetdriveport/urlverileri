@@ -93,3 +93,20 @@ jobs:
           name: profit-results
           path: profit.xlsx
           retention-days: 3
+
+      # --- Eksik olan indirme adımları (sadece profit artifact'leri için) ---
+      - name: Download Main Indis Profit Excel
+        uses: actions/download-artifact@v4
+        with:
+          name: main-indis-profit-results
+          path: downloaded_artifacts/main-indis-profit-results
+
+      - name: Download Profit Excel
+        uses: actions/download-artifact@v4
+        with:
+          name: profit-results
+          path: downloaded_artifacts/profit-results
+
+      # --- Debug için klasör yapısını listele ---
+      - name: List downloaded artifacts
+        run: ls -R downloaded_artifacts
