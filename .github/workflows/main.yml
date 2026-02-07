@@ -3,7 +3,7 @@ name: Main
 on:
   workflow_dispatch:
   schedule:
-    - cron: "30 14 * * 1-5"
+    - cron: "30 14 * * 1-5"   # Hafta içi her gün 17:30 Türkiye saati (UTC+3)
 
 jobs:
   run-main-all:
@@ -21,21 +21,17 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-
-      # --- Önce Main Indis tarafı ---
+          
       - name: Run main_indis.py
         env:
           MAININDIS: ${{ secrets.MAININDIS }}
-        run: |
-          python main_indis.py   # çıktı: main_indis_fiyat.xlsx
+        run: python main_indis.py
 
       - name: Run indicate_indis.py
-        run: |
-          python indicate_indis.py   # çıktı: indis_indicators.xlsx
+        run: python indicate_indis.py
 
       - name: Run main_indis_profit.py
-        run: |
-          python main_indis_profit.py   # çıktı: indis_profit.xlsx
+        run: python main_indis_profit.py
 
       - name: Upload Main Indis Fiyat Excel
         uses: actions/upload-artifact@v4
@@ -58,20 +54,16 @@ jobs:
           path: indis_profit.xlsx
           retention-days: 3
 
-      # --- Sonra Main Fiyat tarafı ---
       - name: Run main.py
         env:
           MAIN: ${{ secrets.MAIN }}
-        run: |
-          python main.py   # çıktı: fiyat.xlsx
+        run: python main.py
 
       - name: Run indicate.py
-        run: |
-          python indicate.py   # çıktı: indicators.xlsx
+        run: python indicate.py
 
       - name: Run main_profit.py
-        run: |
-          python main_profit.py   # çıktı: profit.xlsx
+        run: python main_profit.py
 
       - name: Upload Fiyat Excel
         uses: actions/upload-artifact@v4
@@ -93,3 +85,11 @@ jobs:
           name: profit-results
           path: profit.xlsx
           retention-days: 3
+
+      - name: Trigger private repo workflow
+        run: |
+          curl -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.PRIVATE_REPO_TOKEN }}" \
+            https://api.github.com/repos/ahmt-ay/urlveri-drive/dispatches \
+            -d '{"event_type":"artifacts_ready"}'
