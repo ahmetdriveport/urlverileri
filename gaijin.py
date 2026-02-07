@@ -90,13 +90,22 @@ def main():
         df["Tarih"]=pd.to_datetime(df["Tarih"],dayfirst=True,errors="coerce")
         df["HISSE_KODU"]=df["HISSE_KODU"].astype(str).str.strip().str.upper()
         df["YAB_ORAN_END"]=pd.to_numeric(df["YAB_ORAN_END"],errors="coerce").round(2)
-        df=df.drop_duplicates(subset=["Tarih","HISSE_KODU","YAB_ORAN_END"])
         df=df[df["HISSE_KODU"].isin(hisseler)]
+
+        # Duplicate kombinasyonları bul ve iptal et
+        dupes = df.duplicated(subset=["Tarih","HISSE_KODU"], keep=False)
+        dropped = df[dupes]
+        if not dropped.empty:
+            logger.warning(f"{len(dropped)} satır duplicate olduğu için iptal edildi")
+        df = df[~dupes]
+
+        # Pivot işlemi
         pivot_df=df.pivot(index="Tarih",columns="HISSE_KODU",values="YAB_ORAN_END")
         pivot_df=pivot_df.reindex(columns=hisseler).sort_index(ascending=False).sort_index(axis=1)
         pivot_df.index=pivot_df.index.strftime("%d.%m.%Y")
         pivot_df.to_excel(PIVOT_FILE,engine="openpyxl")
         logger.info(f"{pivot_df.shape} boyutlu pivot {PIVOT_FILE} yazıldı")
-    else: logger.warning("Veri yok")
+    else: 
+        logger.warning("Veri yok")
 
 if __name__=="__main__": main()
