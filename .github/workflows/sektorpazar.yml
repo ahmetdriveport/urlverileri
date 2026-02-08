@@ -30,4 +30,4 @@ jobs:
         with:
           name: sektorpazar-excel
           path: sektorpazar.xlsx
-          retention-days: 3
+          retention-days: 6
