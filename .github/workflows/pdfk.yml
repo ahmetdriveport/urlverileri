@@ -35,11 +35,11 @@ jobs:
         with:
           name: vert-pdfk-excel
           path: pdfk_vert.xlsx
-          retention-days: 3
+          retention-days: 6
 
       - name: Upload horz artifact
         uses: actions/upload-artifact@v4
         with:
           name: horz-pdfk-excel
           path: pdfk_horz.xlsx
-          retention-days: 3
+          retention-days: 6
