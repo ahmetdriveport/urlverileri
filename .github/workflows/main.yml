@@ -38,21 +38,21 @@ jobs:
         with:
           name: main-indis-fiyat-results
           path: main_indis_fiyat.xlsx
-          retention-days: 3
+          retention-days: 6
 
       - name: Upload Indis Indicators Excel
         uses: actions/upload-artifact@v4
         with:
           name: indis-indicators-results
           path: indis_indicators.xlsx
-          retention-days: 3
+          retention-days: 6
 
       - name: Upload Indis Profit Excel
         uses: actions/upload-artifact@v4
         with:
           name: main-indis-profit-results
           path: indis_profit.xlsx
-          retention-days: 3
+          retention-days: 6
 
       - name: Run main.py
         env:
@@ -70,21 +70,21 @@ jobs:
         with:
           name: fiyat-results
           path: fiyat.xlsx
-          retention-days: 3
+          retention-days: 6
 
       - name: Upload Indicators Excel
         uses: actions/upload-artifact@v4
         with:
           name: indicators-results
           path: indicators.xlsx
-          retention-days: 3
+          retention-days: 6
 
       - name: Upload Profit Excel
         uses: actions/upload-artifact@v4
         with:
           name: profit-results
           path: profit.xlsx
-          retention-days: 3
+          retention-days: 6
 
       - name: Trigger private repo workflow
         run: |
