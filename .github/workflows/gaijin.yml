@@ -27,6 +27,10 @@ jobs:
           pip install --upgrade pip
           pip install --upgrade requests pandas selenium webdriver-manager openpyxl
 
+      - name: Convert certificate chain
+        run: |
+          openssl pkcs7 -print_certs -in data/ticrt.p7c -out data/ticrt.crt
+
       - name: Run gaijin
         env:
           GAIJIN: ${{ secrets.GAIJIN }}
