@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, time, logging, requests, pandas as pd, certifi, json
+import os, time, logging, requests, pandas as pd, json
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -16,6 +16,9 @@ HEADLESS=os.getenv("SELENIUM_HEADLESS","true").lower() in ("1","true","yes")
 DATES_FILE=os.path.join(os.path.dirname(__file__),"data","dates.csv")
 PIVOT_FILE="pivot_gaijin.xlsx"
 MAX_ROWS=500
+
+# Sertifika dosyası yolu
+CERT_PATH=os.path.join(os.path.dirname(__file__),"data","ti.crt")
 
 logging.basicConfig(level=logging.INFO,format="%(asctime)s %(levelname)s %(message)s")
 logger=logging.getLogger(__name__)
@@ -45,7 +48,7 @@ def cookie_header_from_list(cookies):
 def safe_post(session,url,payload,headers,n=5,backoff=2.0):
     for attempt in range(n):
         try:
-            r=session.post(url,json=payload,headers=headers,timeout=30,verify=certifi.where())
+            r=session.post(url,json=payload,headers=headers,timeout=30,verify=CERT_PATH)
             if r.ok: return r
         except Exception as e:
             logger.error(f"POST hata: {e}, deneme {attempt+1}/{n}")
