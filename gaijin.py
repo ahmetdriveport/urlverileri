@@ -17,8 +17,8 @@ DATES_FILE=os.path.join(os.path.dirname(__file__),"data","dates.csv")
 PIVOT_FILE="pivot_gaijin.xlsx"
 MAX_ROWS=500
 
-# Sertifika dosyası yolu (repo’ya yüklediğin dosya)
-CERT_PATH=os.path.join(os.path.dirname(__file__),"data","ticrt.p7c")
+# Sertifika dosyası yolu (.p7c → .crt dönüştürülmüş hali)
+CERT_PATH=os.path.join(os.path.dirname(__file__),"data","ticrt.crt")
 
 logging.basicConfig(level=logging.INFO,format="%(asctime)s %(levelname)s %(message)s")
 logger=logging.getLogger(__name__)
