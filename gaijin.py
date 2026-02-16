@@ -15,7 +15,7 @@ CHROMEDRIVER_PATH=os.getenv("CHROMEDRIVER_PATH","")
 HEADLESS=os.getenv("SELENIUM_HEADLESS","true").lower() in ("1","true","yes")
 DATES_FILE=os.path.join(os.path.dirname(__file__),"data","dates.csv")
 PIVOT_FILE="pivot_gaijin.xlsx"
-MAX_ROWS=500
+MAX_ROWS=300
 
 # Sertifika dosyası yolu (PEM/CRT zincir formatında)
 CERT_PATH=os.path.join(os.path.dirname(__file__),"data","ti.crt")
