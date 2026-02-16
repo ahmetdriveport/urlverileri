@@ -17,20 +17,15 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Update CA certificates
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ca-certificates
-          sudo update-ca-certificates
-
       - name: Install Chrome
         run: |
+          sudo apt-get update
           sudo apt-get install -y google-chrome-stable
 
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install --upgrade certifi requests pandas selenium webdriver-manager openpyxl
+          pip install --upgrade requests pandas selenium webdriver-manager openpyxl
 
       - name: Run gaijin
         env:
