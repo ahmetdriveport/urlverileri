@@ -35,6 +35,11 @@ def main():
     df_final=pd.concat(dfs,ignore_index=True)
     df_final["Hisse_Kodu"]=df_final["Hisse_Kodu"].str.strip().str.upper()
     df_final=df_final[df_final["Hisse_Kodu"].isin(set(codes))].drop_duplicates(subset=["Tarih","Hisse_Kodu"])
+
+    # 🔹 Eklenen 2 satır
+    son_sermaye=(df_final.sort_values("Tarih").groupby("Hisse_Kodu")["Sermaye"].last())
+    df_final.loc[:,"Sermaye"]=df_final["Hisse_Kodu"].apply(lambda h:son_sermaye[h])
+
     oz,se,ak,nb,yk=[pd.to_numeric(df_final[c],errors="coerce")*1_000_000 for c in ["Ozkaynak","Sermaye","Aktifler","Netborc","Yillik_Kar"]]
     df_final["Pd_Carpan"]=np.where(oz!=0,se/oz,np.nan).round(5)
     df_final["Fk_Carpan"]=np.where(yk!=0,se/yk,np.nan).round(5)
