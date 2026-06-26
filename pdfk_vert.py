@@ -35,19 +35,19 @@ def main():
     df_final["Hisse_Kodu"]=df_final["Hisse_Kodu"].str.strip().str.upper()
     df_final=df_final[df_final["Hisse_Kodu"].isin(set(codes))].drop_duplicates(subset=["Tarih","Hisse_Kodu"])
 
-    # 🔹 Sermaye kolonunu tarih bazlı bırakıyoruz (overwrite yok)
+    # 🔹 Sermaye kolonunu tarih bazlı bırakıyoruz
     oz,se,ak,nb,yk=[pd.to_numeric(df_final[c],errors="coerce")*1_000_000 
                     for c in ["Ozkaynak","Sermaye","Aktifler","Netborc","Yillik_Kar"]]
 
     # 🔹 Son sermaye serisi (en büyük tarihli değer)
     son_sermaye=(df_final.sort_values("Tarih").groupby("Hisse_Kodu")["Sermaye"].last())
 
-    # 🔹 Pd/Fk hesaplamalarında son sermaye kullanımı
+    # 🔹 Pd/Fk hesaplamalarında son sermaye kullanımı (ölçeklenmiş)
     df_final["Pd_Carpan"]=df_final.apply(
-        lambda row: round(son_sermaye[row["Hisse_Kodu"]]/oz[row.name],5) 
+        lambda row: round(float(son_sermaye[row["Hisse_Kodu"]])*1_000_000 / oz[row.name],5) 
         if oz[row.name]!=0 else np.nan, axis=1)
     df_final["Fk_Carpan"]=df_final.apply(
-        lambda row: round(son_sermaye[row["Hisse_Kodu"]]/yk[row.name],5) 
+        lambda row: round(float(son_sermaye[row["Hisse_Kodu"]])*1_000_000 / yk[row.name],5) 
         if yk[row.name]!=0 else np.nan, axis=1)
 
     df_final["Ozkarlilik"]=np.where(oz!=0,(yk/oz)*100,np.nan).round(2)
