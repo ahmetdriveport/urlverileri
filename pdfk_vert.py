@@ -21,7 +21,6 @@ def main():
     tarih_list=df_dates.iloc[:,0].dropna().astype(str).str.strip().tolist()
     codes=df_dates.iloc[:,1].dropna().astype(str).str.strip().str.upper().tolist()
 
-    # tarih_ayar.py’den secili_tarihleri_bul çağrılıyor
     secili=secili_tarihleri_bul(tarih_list)
 
     dfs=[]
@@ -36,15 +35,24 @@ def main():
     df_final["Hisse_Kodu"]=df_final["Hisse_Kodu"].str.strip().str.upper()
     df_final=df_final[df_final["Hisse_Kodu"].isin(set(codes))].drop_duplicates(subset=["Tarih","Hisse_Kodu"])
 
-    # 🔹 Eklenen 2 satır
-    son_sermaye=(df_final.sort_values("Tarih").groupby("Hisse_Kodu")["Sermaye"].last())
-    df_final.loc[:,"Sermaye"]=df_final["Hisse_Kodu"].apply(lambda h:son_sermaye[h])
+    # 🔹 Sermaye kolonunu tarih bazlı bırakıyoruz (overwrite yok)
+    oz,se,ak,nb,yk=[pd.to_numeric(df_final[c],errors="coerce")*1_000_000 
+                    for c in ["Ozkaynak","Sermaye","Aktifler","Netborc","Yillik_Kar"]]
 
-    oz,se,ak,nb,yk=[pd.to_numeric(df_final[c],errors="coerce")*1_000_000 for c in ["Ozkaynak","Sermaye","Aktifler","Netborc","Yillik_Kar"]]
-    df_final["Pd_Carpan"]=np.where(oz!=0,se/oz,np.nan).round(5)
-    df_final["Fk_Carpan"]=np.where(yk!=0,se/yk,np.nan).round(5)
+    # 🔹 Son sermaye serisi (en büyük tarihli değer)
+    son_sermaye=(df_final.sort_values("Tarih").groupby("Hisse_Kodu")["Sermaye"].last())
+
+    # 🔹 Pd/Fk hesaplamalarında son sermaye kullanımı
+    df_final["Pd_Carpan"]=df_final.apply(
+        lambda row: round(son_sermaye[row["Hisse_Kodu"]]/oz[row.name],5) 
+        if oz[row.name]!=0 else np.nan, axis=1)
+    df_final["Fk_Carpan"]=df_final.apply(
+        lambda row: round(son_sermaye[row["Hisse_Kodu"]]/yk[row.name],5) 
+        if yk[row.name]!=0 else np.nan, axis=1)
+
     df_final["Ozkarlilik"]=np.where(oz!=0,(yk/oz)*100,np.nan).round(2)
     df_final["Aktifkarlilik"]=np.where(ak!=0,(yk/ak)*100,np.nan).round(2)
+
     for col,ser in zip(["Ozkaynak","Sermaye","Aktifler","Netborc","Yillik_Kar"],[oz,se,ak,nb,yk]):
         df_final[col]=ser.apply(lambda x:"" if pd.isna(x) else str(int(x)))
     df_final["Tarih"]=pd.to_datetime(df_final["Tarih"],format="%d.%m.%Y",errors="coerce")
