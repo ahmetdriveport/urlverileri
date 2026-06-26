@@ -6,9 +6,7 @@ codes=df_dates.iloc[:,1].dropna().astype(str).str.strip().str.upper().tolist()
 tarih_list=df_dates.iloc[:,0].dropna().astype(str).str.strip().tolist()
 master_dates=secili_tarihleri_bul(tarih_list)
 
-if not os.path.exists("pdfk_vert.xlsx"):
-    raise FileNotFoundError("❌ pdfk_vert.xlsx bulunamadı. Önce vert script çalışmalı.")
-
+if not os.path.exists("pdfk_vert.xlsx"): raise FileNotFoundError("❌ pdfk_vert.xlsx bulunamadı. Önce vert script çalışmalı.")
 df_src=pd.read_excel("pdfk_vert.xlsx",engine="openpyxl")
 df_src.columns=df_src.columns.str.strip()
 df_src["Hisse_Kodu"]=df_src["Hisse_Kodu"].astype(str).str.strip().str.upper()
@@ -16,41 +14,27 @@ df_src["Tarih"]=pd.to_datetime(df_src["Tarih"].astype(str),format="%d.%m.%Y",err
 
 latest_values,pivot_tables={},{}
 
-def create_pivot(df,col,dtype="int",latest_only=False):
+def create_pivot(df,col,dtype="int"):
     p=pd.pivot_table(df,index="Tarih",columns="Hisse_Kodu",values=col,aggfunc="first")
     p=p.reindex(pd.to_datetime(master_dates,dayfirst=True))
     for c in codes:
         if c not in p.columns: p[c]=np.nan
-    p=p[codes].replace([np.inf,-np.inf],pd.NA)
-
+    p=p[codes].ffill().replace([np.inf,-np.inf],pd.NA)
     if dtype=="int": p=p.round().astype("Int64")
     elif dtype=="float2": p=p.round(2).astype(float)
     elif dtype=="float5": p=p.round(5).astype(float)
-
-    # her zaman en güncel değer kaydediliyor
     last=p.tail(1)
-    latest_values[col]={"Tarih":last.index[0].strftime("%d.%m.%Y"),
-                        "Veriler":last.iloc[0].to_dict()}
+    latest_values[col]={"Tarih":last.index[0].strftime("%d.%m.%Y"),"Veriler":last.iloc[0].to_dict()}
+    out=p.reset_index().rename(columns={"index":"Tarih"})
+    out["Tarih"]=pd.to_datetime(out["Tarih"],errors="coerce")
+    out=out.sort_values("Tarih",ascending=False)
+    out["Tarih"]=out["Tarih"].dt.strftime("%d.%m.%Y")
+    pivot_tables[col]=out
 
-    # sadece latest_only=False ise pivot tablosu yazılacak
-    if not latest_only:
-        out=p.reset_index().rename(columns={"index":"Tarih"})
-        out["Tarih"]=pd.to_datetime(out["Tarih"],errors="coerce")
-        out=out.sort_values("Tarih",ascending=False)
-        out["Tarih"]=out["Tarih"].dt.strftime("%d.%m.%Y")
-        pivot_tables[col]=out
-
-# Tarih bazlı pivotlar (Sermaye dahil)
 for col,dtype in [
-    ("Ozkaynak","int"),("Sermaye","int"),("Aktifler","int"),
-    ("Netborc","int"),("Yillik_Kar","int"),
-    ("Ozkarlilik","float2"),("Aktifkarlilik","float2")
-]:
-    create_pivot(df_src,col,dtype)
-
-# Pd/Fk sadece en güncel sermaye ile hesaplanacak
-for col,dtype in [("Pd_Carpan","float5"),("Fk_Carpan","float5")]:
-    create_pivot(df_src,col,dtype,latest_only=True)
+    ("Ozkaynak","int"),("Sermaye","int"),("Aktifler","int"),("Netborc","int"),("Yillik_Kar","int"),
+    ("Ozkarlilik","float2"),("Aktifkarlilik","float2"),("Pd_Carpan","float5"),("Fk_Carpan","float5")
+]: create_pivot(df_src,col,dtype)
 
 def safe(x): 
     return "" if pd.isna(x) or (isinstance(x,float) and np.isinf(x)) else (
@@ -67,7 +51,7 @@ def latest_vertical():
             safe(latest_values["Pd_Carpan"]["Veriler"].get(h,"")),
             safe(latest_values["Fk_Carpan"]["Veriler"].get(h,"")),
             msci_val,
-            safe(latest_values["Sermaye"]["Veriler"].get(h,"")),  # en güncel sermaye
+            safe(latest_values["Sermaye"]["Veriler"].get(h,"")),
             safe(latest_values["Ozkaynak"]["Veriler"].get(h,"")),
             safe(latest_values["Aktifler"]["Veriler"].get(h,"")),
             safe(latest_values["Netborc"]["Veriler"].get(h,"")),
