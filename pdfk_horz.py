@@ -51,9 +51,10 @@ for h in codes:
         (sermaye_val / ozkaynak_pivot[h]).round(5),
         np.nan
     )
-pd_carpan = pd_carpan.reset_index()
-pd_carpan["Tarih"] = pd.to_datetime(pd_carpan["Tarih"], errors="coerce").dt.strftime("%d.%m.%Y")
+pd_carpan = pd_carpan.reset_index().copy()
+pd_carpan["Tarih"] = pd.to_datetime(pd_carpan["Tarih"], dayfirst=True, errors="coerce").dt.strftime("%d.%m.%Y")
 pivot_tables["Pd_Carpan"] = pd_carpan
+latest_values["Pd_Carpan"]={"Tarih":pd_carpan.iloc[0]["Tarih"],"Veriler":pd_carpan.iloc[0].to_dict()}
 
 # Fk_Carpan pivotu
 fk_carpan = yillikkar_pivot.copy()
@@ -64,20 +65,24 @@ for h in codes:
         (sermaye_val / yillikkar_pivot[h]).round(5),
         np.nan
     )
-fk_carpan = fk_carpan.reset_index()
-fk_carpan["Tarih"] = pd.to_datetime(fk_carpan["Tarih"], errors="coerce").dt.strftime("%d.%m.%Y")
+fk_carpan = fk_carpan.reset_index().copy()
+fk_carpan["Tarih"] = pd.to_datetime(fk_carpan["Tarih"], dayfirst=True, errors="coerce").dt.strftime("%d.%m.%Y")
 pivot_tables["Fk_Carpan"] = fk_carpan
+latest_values["Fk_Carpan"]={"Tarih":fk_carpan.iloc[0]["Tarih"],"Veriler":fk_carpan.iloc[0].to_dict()}
 
 def safe(x): 
     return "" if pd.isna(x) or (isinstance(x,float) and np.isinf(x)) else (
         round(float(x),5) if isinstance(x,float) else int(x) if isinstance(x,int) else str(x)
     )
 
-def latest_vertical():
+artifact="pdfk_horz.xlsx"
+with pd.ExcelWriter(artifact,engine="openpyxl") as w:
+    [df.to_excel(w,sheet_name=name[:30],index=False) for name,df in pivot_tables.items()]
+
+    # 🔹 Son_Tarihli_Oranlar sheet pivotlardan son satır mantığıyla hazırlanıyor
     rows=[]; last_date=latest_values["Sermaye"]["Tarih"]
-    last_date_dt=pd.to_datetime(last_date,format="%d.%m.%Y",errors="coerce")
     for h in codes:
-        subset=df_src[(df_src["Hisse_Kodu"]==h)&(df_src["Tarih"]==last_date_dt)]
+        subset=df_src[(df_src["Hisse_Kodu"]==h)&(df_src["Tarih"]==pd.to_datetime(last_date,format="%d.%m.%Y",errors="coerce"))]
         msci_val=subset["Msci"].iloc[0] if not subset.empty else ""
         rows.append([last_date,h,
             safe(latest_values["Pd_Carpan"]["Veriler"].get(h,"")),
@@ -90,14 +95,9 @@ def latest_vertical():
             safe(latest_values["Yillik_Kar"]["Veriler"].get(h,"")),
             safe(latest_values["Aktifkarlilik"]["Veriler"].get(h,"")),
             safe(latest_values["Ozkarlilik"]["Veriler"].get(h,""))])
-    return pd.DataFrame(rows,columns=[
+    pd.DataFrame(rows,columns=[
         "Tarih","Hisse_Kodu","Pd_Carpan","Fk_Carpan","Msci",
         "Sermaye","Ozkaynak","Aktifler","Netborc","Yillik_Kar",
-        "Aktifkarlilik","Ozkarlilik"])
-
-artifact="pdfk_horz.xlsx"
-with pd.ExcelWriter(artifact,engine="openpyxl") as w:
-    [df.to_excel(w,sheet_name=name[:30],index=False) for name,df in pivot_tables.items()]
-    latest_vertical().to_excel(w,sheet_name="Son_Tarihli_Oranlar",index=False)
+        "Aktifkarlilik","Ozkarlilik"]).to_excel(w,sheet_name="Son_Tarihli_Oranlar",index=False)
 
 print("✅ Artifact oluşturuldu:",artifact)
