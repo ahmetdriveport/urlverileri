@@ -45,23 +45,7 @@ def main():
     for col in ["Ozkaynak","Sermaye","Aktifler","Netborc","Yillik_Kar"]:
         df_final[col] = pd.to_numeric(df_final[col], errors="coerce") * 1_000_000
 
-    # 🔹 En güncel değerler (Son_Tarihli_Oranlar için)
-    son_degerler = df_final.sort_values("Tarih").groupby("Hisse_Kodu").last()
-
-    # 🔹 Pd/Fk hesaplamaları hisse bazlı yapılmalı
-    df_final["Pd_Carpan"] = df_final.apply(
-        lambda row: round(
-            float(son_degerler.loc[row["Hisse_Kodu"], "Sermaye"]) /
-            float(row["Ozkaynak"]), 5
-        ) if pd.notna(row["Ozkaynak"]) and row["Ozkaynak"] != 0 else np.nan, axis=1)
-
-    df_final["Fk_Carpan"] = df_final.apply(
-        lambda row: round(
-            float(son_degerler.loc[row["Hisse_Kodu"], "Sermaye"]) /
-            float(row["Yillik_Kar"]), 5
-        ) if pd.notna(row["Yillik_Kar"]) and row["Yillik_Kar"] != 0 else np.nan, axis=1)
-
-    # Karlılık oranları
+    # 🔹 Karlılık oranları
     df_final["Ozkarlilik"] = np.where(df_final["Ozkaynak"] != 0, (df_final["Yillik_Kar"]/df_final["Ozkaynak"])*100, np.nan).round(2)
     df_final["Aktifkarlilik"] = np.where(df_final["Aktifler"] != 0, (df_final["Yillik_Kar"]/df_final["Aktifler"])*100, np.nan).round(2)
 
