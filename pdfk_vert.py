@@ -2,7 +2,6 @@ import requests,pandas as pd,numpy as np
 from io import BytesIO; from datetime import datetime
 import os
 from tarih_ayar import secili_tarihleri_bul
-from latest_vertical import latest_vertical
 
 BASE_URL=os.environ.get("PDFK")
 
