@@ -41,27 +41,35 @@ def main():
     df_final["Hisse_Kodu"] = df_final["Hisse_Kodu"].str.strip().str.upper()
     df_final = df_final[df_final["Hisse_Kodu"].isin(set(codes))].drop_duplicates(subset=["Tarih","Hisse_Kodu"])
 
-    oz, se, ak, nb, yk = [pd.to_numeric(df_final[c], errors="coerce")*1_000_000
-                          for c in ["Ozkaynak","Sermaye","Aktifler","Netborc","Yillik_Kar"]]
+    # Sayısal kolonları milyon bazından gerçek rakama çevir
+    for col in ["Ozkaynak","Sermaye","Aktifler","Netborc","Yillik_Kar"]:
+        df_final[col] = pd.to_numeric(df_final[col], errors="coerce") * 1_000_000
 
     # 🔹 En güncel değerler (Son_Tarihli_Oranlar için)
     son_degerler = df_final.sort_values("Tarih").groupby("Hisse_Kodu").last()
 
-    # 🔹 Pd/Fk hesaplamalarında aynı son değerler kullanılıyor
+    # 🔹 Pd/Fk hesaplamaları hisse bazlı yapılmalı
     df_final["Pd_Carpan"] = df_final.apply(
-        lambda row: round(float(son_degerler.loc[row["Hisse_Kodu"], "Sermaye"])*1_000_000 / oz[row.name], 5)
-        if oz[row.name] != 0 else np.nan, axis=1)
+        lambda row: round(
+            float(son_degerler.loc[row["Hisse_Kodu"], "Sermaye"]) /
+            float(row["Ozkaynak"]), 5
+        ) if pd.notna(row["Ozkaynak"]) and row["Ozkaynak"] != 0 else np.nan, axis=1)
 
     df_final["Fk_Carpan"] = df_final.apply(
-        lambda row: round(float(son_degerler.loc[row["Hisse_Kodu"], "Sermaye"])*1_000_000 / yk[row.name], 5)
-        if yk[row.name] != 0 else np.nan, axis=1)
+        lambda row: round(
+            float(son_degerler.loc[row["Hisse_Kodu"], "Sermaye"]) /
+            float(row["Yillik_Kar"]), 5
+        ) if pd.notna(row["Yillik_Kar"]) and row["Yillik_Kar"] != 0 else np.nan, axis=1)
 
-    df_final["Ozkarlilik"] = np.where(oz != 0, (yk/oz)*100, np.nan).round(2)
-    df_final["Aktifkarlilik"] = np.where(ak != 0, (yk/ak)*100, np.nan).round(2)
+    # Karlılık oranları
+    df_final["Ozkarlilik"] = np.where(df_final["Ozkaynak"] != 0, (df_final["Yillik_Kar"]/df_final["Ozkaynak"])*100, np.nan).round(2)
+    df_final["Aktifkarlilik"] = np.where(df_final["Aktifler"] != 0, (df_final["Yillik_Kar"]/df_final["Aktifler"])*100, np.nan).round(2)
 
-    for col, ser in zip(["Ozkaynak","Sermaye","Aktifler","Netborc","Yillik_Kar"], [oz,se,ak,nb,yk]):
-        df_final[col] = ser.apply(lambda x: "" if pd.isna(x) else str(int(x)))
+    # Sayısal kolonları stringe çevir (Excel çıktısı için)
+    for col in ["Ozkaynak","Sermaye","Aktifler","Netborc","Yillik_Kar"]:
+        df_final[col] = df_final[col].apply(lambda x: "" if pd.isna(x) else str(int(x)))
 
+    # Tarih formatı
     df_final["Tarih"] = pd.to_datetime(df_final["Tarih"], format="%d.%m.%Y", errors="coerce")
     df_final = df_final.sort_values(by=["Tarih","Hisse_Kodu"], ascending=[False,True]).reset_index(drop=True)
     df_final["Tarih"] = df_final["Tarih"].dt.strftime("%d.%m.%Y")
