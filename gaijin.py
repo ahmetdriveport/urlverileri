@@ -65,11 +65,11 @@ def load_dates_and_hisseler(path=DATES_FILE):
 def fetch_for_target_range(session,start,end,endeks="09"):
     payload={"baslangicTarih":start,"bitisTarihi":end,"sektor":None,"endeks":endeks,"hisse":None}
     headers={"Content-Type":"application/json; charset=UTF-8","X-Requested-With":"XMLHttpRequest",
-             "Origin":"https://www.isyatirim.com.tr","Referer":BASE_PAGE,"User-Agent":USER_AGENT,
+             "Origin":"https://isyatirim.com.tr","Referer":BASE_PAGE,"User-Agent":USER_AGENT,
              "Cookie":session.headers.get("Cookie","")}
     r=safe_post(session,AJAX_URL,payload,headers)
     if r and r.ok:
-        try: return r.json().get("d",[])
+        try: return r.json().get("d", [])
         except: pass
     return []
 
@@ -102,10 +102,22 @@ def main():
             logger.warning(f"{len(dropped)} satır duplicate olduğu için iptal edildi")
         df = df[~dupes]
 
-        # Pivot işlemi
+        # 1. PIVOTLAMA İŞLEMİ BAŞLANGICI
         pivot_df=df.pivot(index="Tarih",columns="HISSE_KODU",values="YAB_ORAN_END")
-        pivot_df=pivot_df.reindex(columns=hisseler).sort_index(ascending=False).sort_index(axis=1)
+        pivot_df=pivot_df.reindex(columns=hisseler).sort_index(axis=1)
+        
+        # 2. PIVOTLAMA BİTTİKTEN SONRA EN SON NOKTADA BOŞLUK DOLDURMA (ffill)
+        # Kronolojik olarak doğru doldurması için önce eskiden yeniye sıralıyoruz,
+        # ffill() yapıp boşlukları geçmiş veriyle dolduruyoruz,
+        # sonra tekrar orijinal tablonuzdaki gibi yeniden eskiye sıralıyoruz.
+        pivot_df = pivot_df.sort_index(ascending=True)
+        pivot_df = pivot_df.ffill()
+        pivot_df = pivot_df.sort_index(ascending=False)
+        
+        # Tarih formatını Excel çıktısı için stringe çevirme
         pivot_df.index=pivot_df.index.strftime("%d.%m.%Y")
+        
+        # Excel dosyasına yazma
         pivot_df.to_excel(PIVOT_FILE,engine="openpyxl")
         logger.info(f"{pivot_df.shape} boyutlu pivot {PIVOT_FILE} yazıldı")
     else: 
