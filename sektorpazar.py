@@ -24,15 +24,15 @@ df_raw=pd.read_excel(BytesIO(requests.get(url_indices,timeout=30).content),heade
 endeks_dict={}
 cur=None
 for i in range(len(df_raw)-1):
-    vals=[str(df_raw.iat[i,j]).strip() if pd.notna(df_raw.iat[i,j]) else "" for j in range(min(5,df_raw.shape[1]))]
+    vals=[str(df_raw.iat[i,j]).strip() if pd.notna(df_raw.iat[i,j]) else "" for j in range(min(5,df_raw.shape))]
     nxt=str(df_raw.iat[i+1,0]).strip() if pd.notna(df_raw.iat[i+1,0]) else ""
     baslik=next((v for v in vals if v.upper().startswith("BIST")),None)
     if baslik and nxt=="1": 
         cur=baslik
         endeks_dict[cur]=[]
         continue
-    if vals and vals[0].isdigit() and cur: 
-        endeks_dict[cur].append(vals[1] if len(vals)>1 else "")
+    if vals and vals.isdigit() and cur: 
+        endeks_dict[cur].append(vals if len(vals)>1 else "")
 df_endeks=pd.DataFrame({k:pd.Series(v) for k,v in endeks_dict.items()})
 
 df_m=pd.read_excel(BytesIO(requests.get(url_markets,timeout=30).content),header=None)
@@ -72,7 +72,6 @@ fd_dict = {}
 
 try:
     driver.get(url_fd)
-    # Tablonun JavaScript ile yüklenmesi için en fazla 20 saniye bekler
     WebDriverWait(driver, 20).until(
         EC.presence_of_element_located((By.TAG_NAME, "table"))
     )
@@ -83,7 +82,7 @@ try:
     rows = [[td.get_text(strip=True) for td in tr.find_all(["td", "th"])] for tr in table_element.find_all("tr")]
 
     if rows:
-        header_row = [str(h).strip() for h in rows[0]]
+        header_row = [str(h).strip() for h in rows]
         
         idx_kod = next((i for i, h in enumerate(header_row) if "Borsa Kodu" in h), 1)
         idx_islem_goren = next((i for i, h in enumerate(header_row) if "Borsada İşlem Gören Pay Adedi" in h), 4)
@@ -102,7 +101,7 @@ try:
                     dolasim_lotu = parse_turkish_number(r[idx_lot])
                     dolasim_orani = parse_turkish_number(r[idx_oran])
                     
-                    # C Maddesi + D ve E Maddeleri toplamı -> Dolaşım Dışı Lot
+                    # Toplama işlemi (C Maddesi + D ve E Maddeleri)
                     dolasim_disi_lot = c_maddesi_lot + de_maddesi_lot
                     
                     fd_dict[kod] = {
@@ -135,10 +134,11 @@ for kod in hisse_list:
             pazar=r["Pazar Kodu"].strip(); break
             
     if hisse_key in fd_dict:
-        islem_goren = fd_dict[hisse_key]["islem_goren"]
+        # İstenen sütunlar tam sayıya (int) yuvarlanıyor
+        islem_goren = int(round(fd_dict[hisse_key]["islem_goren"]))
         oran = fd_dict[hisse_key]["oran"]
-        lot = fd_dict[hisse_key]["lot"]
-        darsi = fd_dict[hisse_key]["disi_lot"]
+        lot = int(round(fd_dict[hisse_key]["lot"]))
+        darsi = int(round(fd_dict[hisse_key]["disi_lot"]))
     else:
         islem_goren = ""
         oran = ""
@@ -148,5 +148,31 @@ for kod in hisse_list:
     res.append([tarih_str, kod, pazar, endeks, sektor, islem_goren, oran, lot, darsi])
 
 artifact=pd.DataFrame(res, columns=["Tarih", "Hisse", "Pazar", "Endeks", "Sektör", "İşlem Gören Lot Sayısı", "Dolaşım Oranı", "Dolaşım Lotu", "Dolaşım Dışı Lot"])
-artifact.to_excel("sektorpazar.xlsx", index=False, engine="openpyxl")
-print("✅ sektorpazar.xlsx başarıyla ve hatasız şekilde oluşturuldu.")
+
+# --- EXCEL BİNLİK AYIRACI VE BİÇİMLENDİRME İŞLEMİ ---
+# openpyxl motoruyla Excel dosyasını oluşturuyoruz
+with pd.ExcelWriter("sektorpazar.xlsx", engine="openpyxl") as writer:
+    artifact.to_excel(writer, index=False, sheet_name="SektorPazar")
+    
+    # openpyxl nesnelerine erişip biçimlendirme uyguluyoruz
+    workbook = writer.book
+    worksheet = writer.sheets["SektorPazar"]
+    
+    # Excel binlik ayıracı maskesi (Ondalıksız tam sayı formatı)
+    # Türkiye Excel'i için nokta ve virgülü sistem otomatik çözer
+    thousands_format = '#,##0' 
+    
+    # Kolon harflerine göre hücreleri tarayıp format basıyoruz
+    # Sütun F: İşlem Gören Lot Sayısı
+    # Sütun H: Dolaşım Lotu
+    # Sütun I: Dolaşım Dışı Lot
+    for row in range(2, len(artifact) + 2):
+        cell_f = worksheet[f"F{row}"]
+        cell_h = worksheet[f"H{row}"]
+        cell_i = worksheet[f"I{row}"]
+        
+        if cell_f.value != "": cell_f.number_format = thousands_format
+        if cell_h.value != "": cell_h.number_format = thousands_format
+        if cell_i.value != "": cell_i.number_format = thousands_format
+
+print("✅ sektorpazar.xlsx tam sayı ve binlik ayıracı formatıyla başarıyla güncellendi.")
