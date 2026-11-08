@@ -21,22 +21,32 @@ secili_tarih=max([d for d in tarih_list if d<=today])
 tarih_str=secili_tarih.strftime("%d.%m.%Y")
 
 df_raw=pd.read_excel(BytesIO(requests.get(url_indices,timeout=30).content),header=None)
-endeks_dict={}; cur=None
+endeks_dict={}
+cur=None
 for i in range(len(df_raw)-1):
-    vals=[str(df_raw.iat[i,j]).strip() if pd.notna(df_raw.iat[i,j]) else "" for j in range(min(5,df_raw.shape))]
+    vals=[str(df_raw.iat[i,j]).strip() if pd.notna(df_raw.iat[i,j]) else "" for j in range(min(5,df_raw.shape[1]))]
     nxt=str(df_raw.iat[i+1,0]).strip() if pd.notna(df_raw.iat[i+1,0]) else ""
     baslik=next((v for v in vals if v.upper().startswith("BIST")),None)
-    if baslik and nxt=="1": cur=baslik; endeks_dict[cur]=; continue
-    if vals and vals.isdigit() and cur: endeks_dict[cur].append(vals if len(vals)>1 else "")
+    if baslik and nxt=="1": 
+        cur=baslik
+        endeks_dict[cur]=[]
+        continue
+    if vals and vals[0].isdigit() and cur: 
+        endeks_dict[cur].append(vals[1] if len(vals)>1 else "")
 df_endeks=pd.DataFrame({k:pd.Series(v) for k,v in endeks_dict.items()})
 
 df_m=pd.read_excel(BytesIO(requests.get(url_markets,timeout=30).content),header=None)
-pazar_dict={}; cur=None
+pazar_dict={}
+cur=None
 for i in range(len(df_m)):
     a=str(df_m.iat[i,0]).strip() if pd.notna(df_m.iat[i,0]) else ""
     b=str(df_m.iat[i,1]).strip() if pd.notna(df_m.iat[i,1]) else ""
-    if any(x in a.upper() for x in["PAZAR","PİYASA"]): cur=a; pazar_dict[cur]=; continue
-    if a.isdigit() and cur: pazar_dict[cur].append(b)
+    if any(x in a.upper() for x in["PAZAR","PİYASA"]): 
+        cur=a
+        pazar_dict[cur]=[]
+        continue
+    if a.isdigit() and cur: 
+        pazar_dict[cur].append(b)
 df_pazar=pd.DataFrame({k:pd.Series(v) for k,v in pazar_dict.items()})
 
 def parse_turkish_number(val_str):
@@ -51,7 +61,7 @@ def parse_turkish_number(val_str):
 
 # --- SELENIUM ARKA PLAN TARAYICI AYARLARI ---
 opts = Options()
-opts.add_argument("--headless=new")  # Arayüz açılmadan arkada çalışır
+opts.add_argument("--headless=new")
 opts.add_argument("--no-sandbox")
 opts.add_argument("--disable-dev-shm-usage")
 opts.add_argument("--disable-gpu")
@@ -66,9 +76,8 @@ try:
     WebDriverWait(driver, 20).until(
         EC.presence_of_element_located((By.TAG_NAME, "table"))
     )
-    time.sleep(3)  # Hücre içeriklerinin tamamen oturması için ek güvenlik payı
+    time.sleep(3)
     
-    # Tamamen yüklenen sayfa kaynağı BeautifulSoup'a aktarılıyor
     soup = BeautifulSoup(driver.page_source, "html.parser")
     table_element = soup.find("table")
     rows = [[td.get_text(strip=True) for td in tr.find_all(["td", "th"])] for tr in table_element.find_all("tr")]
@@ -76,7 +85,6 @@ try:
     if rows:
         header_row = [str(h).strip() for h in rows[0]]
         
-        # Dinamik sütun indekslerinin tespiti
         idx_kod = next((i for i, h in enumerate(header_row) if "Borsa Kodu" in h), 1)
         idx_islem_goren = next((i for i, h in enumerate(header_row) if "Borsada İşlem Gören Pay Adedi" in h), 4)
         idx_c_maddesi = next((i for i, h in enumerate(header_row) if "I. C Maddesi" in h), 5)
@@ -94,7 +102,7 @@ try:
                     dolasim_lotu = parse_turkish_number(r[idx_lot])
                     dolasim_orani = parse_turkish_number(r[idx_oran])
                     
-                    # Talep ettiğiniz toplama işlemi: C Maddesi + D ve E Maddeleri
+                    # C Maddesi + D ve E Maddeleri toplamı -> Dolaşım Dışı Lot
                     dolasim_disi_lot = c_maddesi_lot + de_maddesi_lot
                     
                     fd_dict[kod] = {
@@ -104,13 +112,13 @@ try:
                         "disi_lot": dolasim_disi_lot
                     }
 finally:
-    driver.quit()  # Tarayıcıyı güvenli şekilde kapatır ve hafızayı temizler
+    driver.quit()
 # --------------------------------------------
 
 df_sektor=pd.read_csv("data/sektor.csv")
 df_pazar_map=pd.read_csv("data/pazar.csv")
 
-res=
+res = []
 for kod in hisse_list:
     hisse_key = kod.upper()
     if hisse_key in set(df_endeks["BIST 30"].dropna().astype(str).str.strip()): endeks="XU030"
@@ -141,4 +149,4 @@ for kod in hisse_list:
 
 artifact=pd.DataFrame(res, columns=["Tarih", "Hisse", "Pazar", "Endeks", "Sektör", "İşlem Gören Lot Sayısı", "Dolaşım Oranı", "Dolaşım Lotu", "Dolaşım Dışı Lot"])
 artifact.to_excel("sektorpazar.xlsx", index=False, engine="openpyxl")
-print("✅ sektorpazar.xlsx dinamik Selenium mimarisiyle tam ve eksiksiz oluşturuldu.")
+print("✅ sektorpazar.xlsx başarıyla ve hatasız şekilde oluşturuldu.")
