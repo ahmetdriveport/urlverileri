@@ -13,7 +13,6 @@ from webdriver_manager.chrome import ChromeDriverManager
 urls=json.loads(os.environ.get("SEKTORPAZAR"))
 url_indices,url_markets,url_fd=urls["url1"],urls["url2"],urls["url3"]
 
-# Baştaki 5 sütunu besleyen tüm yerel dosyalar ve orijinal mantık eksiksiz olarak tanımlandı
 df_dates=pd.read_csv("data/dates.csv")
 df_sektor=pd.read_csv("data/sektor.csv")
 df_pazar_map=pd.read_csv("data/pazar.csv")
@@ -28,15 +27,15 @@ df_raw=pd.read_excel(BytesIO(requests.get(url_indices,timeout=30).content),heade
 endeks_dict={}
 cur=None
 for i in range(len(df_raw)-1):
-    vals=[str(df_raw.iat[i,j]).strip() if pd.notna(df_raw.iat[i,j]) else "" for j in range(min(5,df_raw.shape[1]))]
+    vals=[str(df_raw.iat[i,j]).strip() if pd.notna(df_raw.iat[i,j]) else "" for j in range(min(5,df_raw.shape))]
     nxt=str(df_raw.iat[i+1,0]).strip() if pd.notna(df_raw.iat[i+1,0]) else ""
     baslik=next((v for v in vals if v.upper().startswith("BIST")),None)
     if baslik and nxt=="1": 
         cur=baslik
-        endeks_dict[cur]=[]
+        endeks_dict[cur]=
         continue
     if vals and vals.isdigit() and cur: 
-        endeks_dict[cur].append(vals[1] if len(vals)>1 else "")
+        endeks_dict[cur].append(vals if len(vals)>1 else "")
 df_endeks=pd.DataFrame({k:pd.Series(v) for k,v in endeks_dict.items()})
 
 df_m=pd.read_excel(BytesIO(requests.get(url_markets,timeout=30).content),header=None)
@@ -47,7 +46,7 @@ for i in range(len(df_m)):
     b=str(df_m.iat[i,1]).strip() if pd.notna(df_m.iat[i,1]) else ""
     if any(x in a.upper() for x in["PAZAR","PİYASA"]): 
         cur=a
-        pazar_dict[cur]=[]
+        pazar_dict[cur]=
         continue
     if a.isdigit() and cur: 
         pazar_dict[cur].append(b)
@@ -117,7 +116,7 @@ finally:
     driver.quit()
 # --------------------------------------------
 
-res = []
+res =
 for kod in hisse_list:
     hisse_key = kod.upper()
     if hisse_key in set(df_endeks["BIST 30"].dropna().astype(str).str.strip()): endeks="XU030"
@@ -134,6 +133,7 @@ for kod in hisse_list:
             pazar=r["Pazar Kodu"].strip(); break
             
     if hisse_key in fd_dict:
+        # 6, 8 ve 9. sütunlar tam sayıya (int) yuvarlanıyor, 7. sütun (oran) orijinal kalıyor
         islem_goren = int(round(fd_dict[hisse_key]["islem_goren"]))
         oran = fd_dict[hisse_key]["oran"]
         lot = int(round(fd_dict[hisse_key]["lot"]))
@@ -158,7 +158,7 @@ with pd.ExcelWriter("sektorpazar.xlsx", engine="openpyxl") as writer:
     # Ondalıksız tam sayı binlik ayracı maskesi
     thousands_format = '#,##0' 
     
-    # F, H ve I kolonlarını döngüyle tarayıp sayısal hücrelere format basıyoruz
+    # F (6. sütun), H (8. sütun) ve I (9. sütun) kolonlarına format basılıyor
     for row in range(2, len(artifact) + 2):
         cell_f = worksheet[f"F{row}"]
         cell_h = worksheet[f"H{row}"]
@@ -168,4 +168,4 @@ with pd.ExcelWriter("sektorpazar.xlsx", engine="openpyxl") as writer:
         if cell_h.value != "": cell_h.number_format = thousands_format
         if cell_i.value != "": cell_i.number_format = thousands_format
 
-print("✅ sektorpazar.xlsx baştaki 5 sütun korunarak tam sayı formatıyla başarıyla oluşturuldu.")
+print("✅ sektorpazar.xlsx 9 sütunlu yapıda, lotlar tam sayı ve binlik ayıracıyla başarıyla güncellendi.")
