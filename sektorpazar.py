@@ -13,6 +13,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 urls=json.loads(os.environ.get("SEKTORPAZAR"))
 url_indices,url_markets,url_fd=urls["url1"],urls["url2"],urls["url3"]
 
+# Baştaki 5 sütunu besleyen yerel dosyalar ve orijinal mantık aynen korundu
 df_dates=pd.read_csv("data/dates.csv")
 hisse_list=df_dates["Hisse"].dropna().str.strip().unique()
 today=datetime.now().date()
@@ -24,15 +25,15 @@ df_raw=pd.read_excel(BytesIO(requests.get(url_indices,timeout=30).content),heade
 endeks_dict={}
 cur=None
 for i in range(len(df_raw)-1):
-    vals=[str(df_raw.iat[i,j]).strip() if pd.notna(df_raw.iat[i,j]) else "" for j in range(min(5,df_raw.shape))]
+    vals=[str(df_raw.iat[i,j]).strip() if pd.notna(df_raw.iat[i,j]) else "" for j in range(min(5,df_raw.shape[1]))]
     nxt=str(df_raw.iat[i+1,0]).strip() if pd.notna(df_raw.iat[i+1,0]) else ""
     baslik=next((v for v in vals if v.upper().startswith("BIST")),None)
     if baslik and nxt=="1": 
         cur=baslik
         endeks_dict[cur]=[]
         continue
-    if vals and vals.isdigit() and cur: 
-        endeks_dict[cur].append(vals if len(vals)>1 else "")
+    if vals and vals[0].isdigit() and cur: 
+        endeks_dict[cur].append(vals[1] if len(vals)>1 else "")
 df_endeks=pd.DataFrame({k:pd.Series(v) for k,v in endeks_dict.items()})
 
 df_m=pd.read_excel(BytesIO(requests.get(url_markets,timeout=30).content),header=None)
@@ -82,7 +83,7 @@ try:
     rows = [[td.get_text(strip=True) for td in tr.find_all(["td", "th"])] for tr in table_element.find_all("tr")]
 
     if rows:
-        header_row = [str(h).strip() for h in rows]
+        header_row = [str(h).strip() for h in rows[0]]
         
         idx_kod = next((i for i, h in enumerate(header_row) if "Borsa Kodu" in h), 1)
         idx_islem_goren = next((i for i, h in enumerate(header_row) if "Borsada İşlem Gören Pay Adedi" in h), 4)
@@ -101,7 +102,6 @@ try:
                     dolasim_lotu = parse_turkish_number(r[idx_lot])
                     dolasim_orani = parse_turkish_number(r[idx_oran])
                     
-                    # Toplama işlemi (C Maddesi + D ve E Maddeleri)
                     dolasim_disi_lot = c_maddesi_lot + de_maddesi_lot
                     
                     fd_dict[kod] = {
@@ -113,9 +113,6 @@ try:
 finally:
     driver.quit()
 # --------------------------------------------
-
-df_sektor=pd.read_csv("data/sektor.csv")
-df_pazar_map=pd.read_csv("data/pazar.csv")
 
 res = []
 for kod in hisse_list:
@@ -149,23 +146,17 @@ for kod in hisse_list:
 
 artifact=pd.DataFrame(res, columns=["Tarih", "Hisse", "Pazar", "Endeks", "Sektör", "İşlem Gören Lot Sayısı", "Dolaşım Oranı", "Dolaşım Lotu", "Dolaşım Dışı Lot"])
 
-# --- EXCEL BİNLİK AYIRACI VE BİÇİMLENDİRME İŞLEMİ ---
-# openpyxl motoruyla Excel dosyasını oluşturuyoruz
+# --- EXCEL BİNLİK AYIRACI BİÇİMLENDİRME İŞLEMİ ---
 with pd.ExcelWriter("sektorpazar.xlsx", engine="openpyxl") as writer:
     artifact.to_excel(writer, index=False, sheet_name="SektorPazar")
     
-    # openpyxl nesnelerine erişip biçimlendirme uyguluyoruz
     workbook = writer.book
     worksheet = writer.sheets["SektorPazar"]
     
-    # Excel binlik ayıracı maskesi (Ondalıksız tam sayı formatı)
-    # Türkiye Excel'i için nokta ve virgülü sistem otomatik çözer
+    # Ondalıksız tam sayı binlik ayracı maskesi
     thousands_format = '#,##0' 
     
-    # Kolon harflerine göre hücreleri tarayıp format basıyoruz
-    # Sütun F: İşlem Gören Lot Sayısı
-    # Sütun H: Dolaşım Lotu
-    # Sütun I: Dolaşım Dışı Lot
+    # F, H ve I kolonlarını döngüyle tarayıp sayısal hücrelere format basıyoruz
     for row in range(2, len(artifact) + 2):
         cell_f = worksheet[f"F{row}"]
         cell_h = worksheet[f"H{row}"]
@@ -175,4 +166,4 @@ with pd.ExcelWriter("sektorpazar.xlsx", engine="openpyxl") as writer:
         if cell_h.value != "": cell_h.number_format = thousands_format
         if cell_i.value != "": cell_i.number_format = thousands_format
 
-print("✅ sektorpazar.xlsx tam sayı ve binlik ayıracı formatıyla başarıyla güncellendi.")
+print("✅ sektorpazar.xlsx baştaki 5 sütun korunarak tam sayı formatıyla başarıyla oluşturuldu.")
