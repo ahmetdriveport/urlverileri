@@ -32,27 +32,27 @@ for i in range(len(df_m)):
     if a.isdigit() and cur: pazar_dict[cur].append(b)
 df_pazar=pd.DataFrame({k:pd.Series(v) for k,v in pazar_dict.items()})
 
-# --- YENİLENEN DİNAMİK HTML KAZIMA BÖLÜMÜ ---
-soup=BeautifulSoup(requests.get(url_fd,timeout=30).text,"html.parser")
-table_element=soup.find("table")
-rows=[[td.get_text(strip=True) for td in tr.find_all(["td","th"])] for tr in table_element.find_all("tr")]
-
 def parse_turkish_number(val_str):
-    """Metin olarak gelen Türkçe formatlı sayıları temiz sayıya (float) çevirir."""
-    if not val_str or val_str.strip() == "":
+    """Metin olarak gelen Türkçe formatlı finansal rakamları temiz sayıya (float) çevirir."""
+    if not val_str or val_str.strip() == "" or val_str.strip() == "-":
         return 0.0
     try:
-        # Binlik ayırıcı olan noktaları kaldır, ondalık ayırıcı olan virgülü noktaya çevir
         cleaned = val_str.strip().replace(".", "").replace(",", ".")
         return float(cleaned)
     except:
         return 0.0
 
-data=[]
+# --- YENİLENEN ESNEK VE DİNAMİK HTML OKUMA BÖLÜMÜ ---
+soup=BeautifulSoup(requests.get(url_fd,timeout=30).text,"html.parser")
+table_element=soup.find("table")
+rows=[[td.get_text(strip=True) for td in tr.find_all(["td","th"])] for tr in table_element.find_all("tr")]
+
+fd_dict={}
 if rows:
+    # Başlık satırını temiz metin dizisi olarak alıyoruz
     header_row=[str(h).strip() for h in rows[0]]
     
-    # Görseldeki yeni sütunların konumlarını dinamik olarak tespit ediyoruz
+    # Yeni Next.js tablosundaki sütunların konumlarını isim uyuşmasından dinamik buluyoruz
     idx_kod = next((i for i, h in enumerate(header_row) if "Borsa Kodu" in h), 1)
     idx_islem_goren = next((i for i, h in enumerate(header_row) if "Borsada İşlem Gören Pay Adedi" in h), 4)
     idx_c_maddesi = next((i for i, h in enumerate(header_row) if "I. C Maddesi" in h), 5)
@@ -60,55 +60,64 @@ if rows:
     idx_lot = next((i for i, h in enumerate(header_row) if "Fiili Dolaşımdaki Pay Adedi" in h), 7)
     idx_oran = next((i for i, h in enumerate(header_row) if "Fiili Dolaşımdaki Pay Oranı" in h), 8)
     
+    # Veri satırlarını işliyoruz
     for r in rows[1:]:
         if len(r) > max(idx_kod, idx_islem_goren, idx_c_maddesi, idx_de_maddesi, idx_lot, idx_oran):
-            kod = r[idx_kod].strip()
-            
-            # Sayısal alanları dönüştürerek çekiyoruz
-            islem_goren_lot = parse_turkish_number(r[idx_islem_goren])
-            c_maddesi_lot = parse_turkish_number(r[idx_c_maddesi])
-            de_maddesi_lot = parse_turkish_number(r[idx_de_maddesi])
-            lot = parse_turkish_number(r[idx_lot])
-            oran = parse_turkish_number(r[idx_oran])
-            
-            # C maddesi ve D/E maddelerinin toplamından Dolaşım Dışı Lot hesaplanıyor
-            dolasim_disi_lot = c_maddesi_lot + de_maddesi_lot
-            
-            if kod: 
-                data.append([kod, islem_goren_lot, oran, lot, dolasim_disi_lot])
-
-df_fd=pd.DataFrame(data, columns=["Borsa Kodu", "İşlem Gören Lot Sayısı", "Fiili Dolaşımdaki Pay Oranı(%)", "Fiili Dolaşımdaki Pay Tutarı(TL)", "Dolaşım Dışı Lot"])
-# ---------------------------------------------
+            kod = r[idx_kod].strip().upper()
+            if kod:
+                # İlgili hücrelerdeki rakamları sayı formatına çeviriyoruz
+                islem_goren_lot = parse_turkish_number(r[idx_islem_goren])
+                c_maddesi_lot = parse_turkish_number(r[idx_c_maddesi])
+                de_maddesi_lot = parse_turkish_number(r[idx_de_maddesi])
+                dolasim_lotu = parse_turkish_number(r[idx_lot])
+                dolasim_orani = parse_turkish_number(r[idx_oran])
+                
+                # C maddesi ile D ve E maddelerinin toplamından "Dolaşım Dışı Lot" hesaplanıyor
+                dolasim_disi_lot = c_maddesi_lot + de_maddesi_lot
+                
+                # Hisse kodunu anahtar (key) yaparak sözlüğe kaydediyoruz
+                fd_dict[kod] = {
+                    "islem_goren": islem_goren_lot,
+                    "oran": dolasim_orani,
+                    "lot": dolasim_lotu,
+                    "disi_lot": dolasim_disi_lot
+                }
+# -----------------------------------------------------
 
 df_sektor=pd.read_csv("data/sektor.csv")
 df_pazar_map=pd.read_csv("data/pazar.csv")
 
 res=[]
 for kod in hisse_list:
-    if kod in set(df_endeks["BIST 30"].dropna().astype(str).str.strip()): endeks="XU030"
-    elif kod in set(df_endeks["BIST 50"].dropna().astype(str).str.strip()): endeks="XU050"
-    elif kod in set(df_endeks["BIST 100"].dropna().astype(str).str.strip()): endeks="XU100"
+    hisse_key = kod.upper()
+    if hisse_key in set(df_endeks["BIST 30"].dropna().astype(str).str.strip()): endeks="XU030"
+    elif hisse_key in set(df_endeks["BIST 50"].dropna().astype(str).str.strip()): endeks="XU050"
+    elif hisse_key in set(df_endeks["BIST 100"].dropna().astype(str).str.strip()): endeks="XU100"
     else: endeks=""
     sektor=""
     for _,r in df_sektor.iterrows():
-        if r["Endeks Kolonu"].strip() in df_endeks.columns and kod in set(df_endeks[r["Endeks Kolonu"].strip()].dropna().astype(str).str.strip()):
+        if r["Endeks Kolonu"].strip() in df_endeks.columns and hisse_key in set(df_endeks[r["Endeks Kolonu"].strip()].dropna().astype(str).str.strip()):
             sektor=r["Sektor Kodu"].strip(); break
     pazar=""
     for _,r in df_pazar_map.iterrows():
-        if r["Pattern"].strip() in df_pazar.columns and kod in set(df_pazar[r["Pattern"].strip()].dropna().astype(str).str.strip()):
+        if r["Pattern"].strip() in df_pazar.columns and hisse_key in set(df_pazar[r["Pattern"].strip()].dropna().astype(str).str.strip()):
             pazar=r["Pazar Kodu"].strip(); break
             
-    fd=df_fd[df_fd["Borsa Kodu"]==kod]
-    
-    # Verileri alırken eğer veri yoksa sayısal sıralamayı bozmamak adına varsayılan 0 veya boş metin atıyoruz
-    islem_goren = fd.iloc[0]["İşlem Gören Lot Sayısı"] if not fd.empty else ""
-    oran = fd.iloc[0]["Fiili Dolaşımdaki Pay Oranı(%)"] if not fd.empty else ""
-    lot = fd.iloc[0]["Fiili Dolaşımdaki Pay Tutarı(TL)"] if not fd.empty else ""
-    darsi = fd.iloc[0]["Dolaşım Dışı Lot"] if not fd.empty else ""
-    
+    # Eğer hisse sözlükte (KAP verisinde) mevcutsa sayısal verileri çekiyoruz, yoksa boş kalıyor
+    if hisse_key in fd_dict:
+        islem_goren = fd_dict[hisse_key]["islem_goren"]
+        oran = fd_dict[hisse_key]["oran"]
+        lot = fd_dict[hisse_key]["lot"]
+        darsi = fd_dict[hisse_key]["disi_lot"]
+    else:
+        islem_goren = ""
+        oran = ""
+        lot = ""
+        darsi = ""
+        
     res.append([tarih_str, kod, pazar, endeks, sektor, islem_goren, oran, lot, darsi])
 
-# İstediğiniz yeni sütun sıralamasıyla nihai tablo oluşturuluyor
+# İstediğiniz yeni kolon sıralamasına göre DataFrame ayağa kaldırılıyor
 artifact=pd.DataFrame(res, columns=["Tarih", "Hisse", "Pazar", "Endeks", "Sektör", "İşlem Gören Lot Sayısı", "Dolaşım Oranı", "Dolaşım Lotu", "Dolaşım Dışı Lot"])
 artifact.to_excel("sektorpazar.xlsx", index=False, engine="openpyxl")
-print("✅ sektorpazar.xlsx oluşturuldu.")
+print("✅ sektorpazar.xlsx yeni sütun yapısıyla başarıyla oluşturuldu.")
