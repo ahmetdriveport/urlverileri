@@ -13,8 +13,11 @@ from webdriver_manager.chrome import ChromeDriverManager
 urls=json.loads(os.environ.get("SEKTORPAZAR"))
 url_indices,url_markets,url_fd=urls["url1"],urls["url2"],urls["url3"]
 
-# Baştaki 5 sütunu besleyen yerel dosyalar ve orijinal mantık aynen korundu
+# Baştaki 5 sütunu besleyen tüm yerel dosyalar ve orijinal mantık eksiksiz olarak tanımlandı
 df_dates=pd.read_csv("data/dates.csv")
+df_sektor=pd.read_csv("data/sektor.csv")
+df_pazar_map=pd.read_csv("data/pazar.csv")
+
 hisse_list=df_dates["Hisse"].dropna().str.strip().unique()
 today=datetime.now().date()
 tarih_list=pd.to_datetime(df_dates.iloc[:,0],dayfirst=True,errors="coerce").dropna().dt.date
@@ -32,7 +35,7 @@ for i in range(len(df_raw)-1):
         cur=baslik
         endeks_dict[cur]=[]
         continue
-    if vals and vals[0].isdigit() and cur: 
+    if vals and vals.isdigit() and cur: 
         endeks_dict[cur].append(vals[1] if len(vals)>1 else "")
 df_endeks=pd.DataFrame({k:pd.Series(v) for k,v in endeks_dict.items()})
 
@@ -83,7 +86,7 @@ try:
     rows = [[td.get_text(strip=True) for td in tr.find_all(["td", "th"])] for tr in table_element.find_all("tr")]
 
     if rows:
-        header_row = [str(h).strip() for h in rows[0]]
+        header_row = [str(h).strip() for h in rows]
         
         idx_kod = next((i for i, h in enumerate(header_row) if "Borsa Kodu" in h), 1)
         idx_islem_goren = next((i for i, h in enumerate(header_row) if "Borsada İşlem Gören Pay Adedi" in h), 4)
@@ -131,7 +134,6 @@ for kod in hisse_list:
             pazar=r["Pazar Kodu"].strip(); break
             
     if hisse_key in fd_dict:
-        # İstenen sütunlar tam sayıya (int) yuvarlanıyor
         islem_goren = int(round(fd_dict[hisse_key]["islem_goren"]))
         oran = fd_dict[hisse_key]["oran"]
         lot = int(round(fd_dict[hisse_key]["lot"]))
